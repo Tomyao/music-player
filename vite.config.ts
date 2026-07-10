@@ -46,8 +46,13 @@ export default defineConfig({
           },
         ],
       },
+      // The dev server has no built assets for the SW to precache, and
+      // registerType: 'autoUpdate' force-reloads the page whenever a new SW
+      // takes control — under HMR that fires repeatedly and silently kills
+      // whatever's mid-playback. Test the real service worker with
+      // `npm run build && npm run preview` instead (see README).
       devOptions: {
-        enabled: true,
+        enabled: false,
       },
     }),
   ],

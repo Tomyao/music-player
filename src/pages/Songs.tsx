@@ -12,7 +12,7 @@ import type { SortDir, SortKey, Track } from '@/types';
 
 export default function SongsPage() {
   const tracks = useTracks();
-  const { playNow, enqueue, playNext, currentTrack, isPlaying } = usePlayer();
+  const { playNow, enqueue, playNext, currentTrack, isPlaying, removeTrackFromQueue } = usePlayer();
   const { showToast } = useToast();
 
   const [query, setQuery] = useState('');
@@ -61,6 +61,7 @@ export default function SongsPage() {
   const handleDelete = async () => {
     if (!pendingDelete) return;
     await deleteTrackCascade(pendingDelete.id);
+    removeTrackFromQueue(pendingDelete.id);
     showToast(`Removed "${pendingDelete.title}"`, 'success');
     setPendingDelete(null);
   };

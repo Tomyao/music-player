@@ -47,6 +47,8 @@ interface PlayerContextValue {
   reorderQueue: (fromIndex: number, toIndex: number) => void;
   /** Drops every queued track except the one currently playing. */
   clearQueue: () => void;
+  /** Purges every occurrence of `trackId` from the queue, e.g. after it's deleted from the library. */
+  removeTrackFromQueue: (trackId: string) => void;
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -185,46 +187,56 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     };
   }, [isPlaying]);
 
+  // NOTE: deliberately does not use the `setState(prev => ...)` functional form
+  // for anything with a side effect (ref mutation, audio.play(), etc). React 18
+  // Strict Mode double-invokes functional updaters in dev to catch impurity —
+  // an earlier version nested setCurrentIndex (and side effects) inside a
+  // setQueue updater here, which under that double-invoke skipped a track
+  // every time playback advanced. Reading `queue`/`currentIndex` from the
+  // closure and calling setCurrentIndex with a plain value avoids that.
   const advance = useCallback(
     (fromEnded: boolean) => {
-      setQueue((currentQueue) => {
-        setCurrentIndex((idx) => {
-          if (currentQueue.length === 0) return idx;
+      if (queue.length === 0) return;
 
-          if (fromEnded && repeat === 'one') {
-            const audio = audioRef.current;
-            if (audio) {
-              audio.currentTime = 0;
-              audio.play().catch(() => setIsPlaying(false));
-            }
-            return idx;
-          }
+      if (fromEnded && repeat === 'one') {
+        const audio = audioRef.current;
+        if (audio) {
+          audio.currentTime = 0;
+          audio.play().catch(() => setIsPlaying(false));
+        }
+        return;
+      }
 
-          historyRef.current.push(idx);
-
-          let nextIndex: number;
-          if (shuffle && currentQueue.length > 1) {
-            do {
-              nextIndex = Math.floor(Math.random() * currentQueue.length);
-            } while (nextIndex === idx);
+      let nextIndex: number;
+      if (shuffle && queue.length > 1) {
+        do {
+          nextIndex = Math.floor(Math.random() * queue.length);
+        } while (nextIndex === currentIndex);
+      } else {
+        nextIndex = currentIndex + 1;
+        if (nextIndex >= queue.length) {
+          if (repeat === 'all') {
+            nextIndex = 0;
           } else {
-            nextIndex = idx + 1;
-            if (nextIndex >= currentQueue.length) {
-              if (repeat === 'all') {
-                nextIndex = 0;
-              } else {
-                setIsPlaying(false);
-                historyRef.current.pop();
-                return idx;
-              }
-            }
+            setIsPlaying(false);
+            return; // reached the end with no repeat; stay on the last track
           }
-          return nextIndex;
-        });
-        return currentQueue;
-      });
+        }
+      }
+
+      // The <audio> element fires a native `pause` event immediately before
+      // `ended` when a track finishes naturally, which sets isPlaying(false)
+      // just ahead of this call (React 18 batches both into the same render).
+      // Without correcting it here, the next track's load effect would read
+      // that stale `isPlaying` and never call audio.play(). Manual next()
+      // (fromEnded=false) has no such race, so it's left alone — skipping
+      // to the next track while paused should stay paused.
+      if (fromEnded) setIsPlaying(true);
+
+      historyRef.current.push(currentIndex);
+      setCurrentIndex(nextIndex);
     },
-    [repeat, shuffle],
+    [repeat, shuffle, queue, currentIndex],
   );
 
   // ---- native <audio> event wiring ----
@@ -436,6 +448,30 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     historyRef.current = [];
   }, [currentIndex]);
 
+  const removeTrackFromQueue = useCallback(
+    (trackId: string) => {
+      if (!queue.includes(trackId)) return; // no-op: don't touch state / reload whatever's playing
+      const currentId = queue[currentIndex];
+      const filtered = queue.filter((id) => id !== trackId);
+
+      let newIndex: number;
+      if (filtered.length === 0) {
+        newIndex = -1;
+      } else if (currentId === trackId) {
+        newIndex = Math.min(currentIndex, filtered.length - 1);
+      } else {
+        const idx = filtered.indexOf(currentId);
+        newIndex = idx === -1 ? Math.min(currentIndex, filtered.length - 1) : idx;
+      }
+
+      // indices in the back/forward history no longer line up after a removal
+      historyRef.current = [];
+      setQueue(filtered);
+      setCurrentIndex(newIndex);
+    },
+    [queue, currentIndex],
+  );
+
   const value = useMemo<PlayerContextValue>(
     () => ({
       queue,
@@ -466,6 +502,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       removeFromQueue,
       reorderQueue,
       clearQueue,
+      removeTrackFromQueue,
     }),
     [
       queue,
@@ -496,6 +533,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       removeFromQueue,
       reorderQueue,
       clearQueue,
+      removeTrackFromQueue,
     ],
   );
 
