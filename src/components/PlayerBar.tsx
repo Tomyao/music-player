@@ -153,11 +153,10 @@ export function PlayerBar() {
           <div className="flex items-center gap-4">
             <button
               onClick={toggleShuffle}
-              disabled={disabled}
               aria-pressed={shuffle}
               aria-label="Toggle shuffle"
               title="Shuffle"
-              className={`rounded-full p-2 hover:bg-surface-hover disabled:pointer-events-none disabled:opacity-40 ${shuffle ? 'text-accent' : 'text-text-muted'}`}
+              className={`rounded-full p-2 hover:bg-surface-hover ${shuffle ? 'text-accent' : 'text-text-muted'}`}
             >
               <Shuffle className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -191,11 +190,10 @@ export function PlayerBar() {
             </button>
             <button
               onClick={cycleRepeat}
-              disabled={disabled}
               aria-pressed={repeat !== 'off'}
               aria-label={`Repeat: ${repeat}`}
               title={`Repeat: ${repeat}`}
-              className={`rounded-full p-2 hover:bg-surface-hover disabled:pointer-events-none disabled:opacity-40 ${repeat !== 'off' ? 'text-accent' : 'text-text-muted'}`}
+              className={`rounded-full p-2 hover:bg-surface-hover ${repeat !== 'off' ? 'text-accent' : 'text-text-muted'}`}
             >
               {repeat === 'one' ? (
                 <Repeat1 className="h-4 w-4" aria-hidden="true" />

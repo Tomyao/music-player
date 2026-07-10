@@ -75,6 +75,20 @@ export function SongList({
           <span className="font-medium">{selectedIds.size} selected</span>
           <div className="ml-auto flex items-center gap-1">
             <button
+              onClick={() => onEnqueue(selectedTracks.map((t) => t.id))}
+              className="flex items-center gap-1 rounded-full px-2 py-1 hover:bg-surface-hover"
+              title="Add to queue"
+            >
+              <ListPlus className="h-4 w-4" aria-hidden="true" /> Queue
+            </button>
+            <button
+              onClick={() => onPlayNext(selectedTracks.map((t) => t.id))}
+              className="flex items-center gap-1 rounded-full px-2 py-1 hover:bg-surface-hover"
+              title="Play next"
+            >
+              <ListEnd className="h-4 w-4" aria-hidden="true" /> Play next
+            </button>
+            <button
               onClick={() => onRemoveSelected(selectedTracks)}
               className="flex items-center gap-1 rounded-full px-2 py-1 text-danger hover:bg-danger/10"
               title="Remove from library"

@@ -12,6 +12,27 @@ import { db, getOrCreateSettings, updateSettings } from '@/db/indexedDb';
 import { objectUrlCache } from '@/lib/audio';
 import type { RepeatMode, Track } from '@/types';
 
+function shuffleArray<T>(items: T[]): T[] {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+/** Filters `trackIds` down to ones not already in `queue`, also collapsing duplicates within `trackIds` itself. */
+function dedupeAgainstQueue(queue: string[], trackIds: string[]): string[] {
+  const seen = new Set(queue);
+  const toAdd: string[] = [];
+  for (const id of trackIds) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    toAdd.push(id);
+  }
+  return toAdd;
+}
+
 interface PlayerContextValue {
   queue: string[];
   currentIndex: number;
@@ -36,13 +57,22 @@ interface PlayerContextValue {
   prev: () => void;
   setVolume: (v: number) => void;
   setRepeat: (mode: RepeatMode) => void;
+  /** Shuffles the not-yet-played queue in place (visible in the Queue panel); reverts it on toggling off. */
   toggleShuffle: () => void;
   toggleQueueDrawer: () => void;
 
-  /** Appends to the end of the queue. */
-  enqueue: (trackIds: string[]) => void;
-  /** Inserts right after the currently playing track. */
-  playNext: (trackIds: string[]) => void;
+  /**
+   * Appends to the queue; scattered at random positions among the not-yet-played
+   * tracks when shuffle is on. Tracks already in the queue are skipped (no
+   * duplicates); returns how many were actually added.
+   */
+  enqueue: (trackIds: string[]) => number;
+  /**
+   * Inserts right after the currently playing track. Tracks already
+   * elsewhere in the queue are moved rather than duplicated; the currently
+   * playing track itself is left alone. Returns how many were placed.
+   */
+  playNext: (trackIds: string[]) => number;
   removeFromQueue: (index: number) => void;
   reorderQueue: (fromIndex: number, toIndex: number) => void;
   /** Empties the queue entirely and stops playback, including the current track. */
@@ -76,6 +106,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const historyRef = useRef<number[]>([]);
+  // Remembers the not-yet-played tail's order from just before shuffle was
+  // turned on, so turning it off can restore it. Cleared once restored.
+  const preShuffleTailRef = useRef<string[] | null>(null);
   const loadedBlobIdRef = useRef<string | null>(null);
   const rafRef = useRef<number>();
   const restoredPositionRef = useRef<number | null>(null);
@@ -103,10 +136,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ---- load whichever track `currentIndex` points to ----
+  // Keyed on the track id itself (not `queue`/`currentIndex`) so that queue
+  // edits which don't move the currently-playing track — reordering,
+  // enqueueing, "Play next" relocating other songs — don't reset audio.src
+  // and restart playback of whatever's already playing.
+  const currentTrackId = queue[currentIndex];
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-    const trackId = queue[currentIndex];
+    const trackId = currentTrackId;
 
     if (!trackId) {
       audio.pause();
@@ -164,7 +202,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     };
     // isPlaying intentionally excluded: this effect only reacts to track changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queue, currentIndex]);
+  }, [currentTrackId]);
 
   useEffect(() => {
     return () => {
@@ -207,20 +245,32 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      let nextIndex: number;
-      if (shuffle && queue.length > 1) {
-        do {
-          nextIndex = Math.floor(Math.random() * queue.length);
-        } while (nextIndex === currentIndex);
-      } else {
-        nextIndex = currentIndex + 1;
-        if (nextIndex >= queue.length) {
-          if (repeat === 'all') {
-            nextIndex = 0;
-          } else {
-            setIsPlaying(false);
-            return; // reached the end with no repeat; stay on the last track
+      // Shuffle reorders the queue itself (see toggleShuffle) rather than
+      // picking a random index each time, so the Queue panel always shows
+      // the real upcoming order — advancing is just "next slot" either way.
+      let nextIndex = currentIndex + 1;
+      let reshuffled: string[] | null = null;
+      if (nextIndex >= queue.length) {
+        if (repeat === 'all') {
+          nextIndex = 0;
+          if (shuffle && queue.length > 1) {
+            // Starting a new lap: re-shuffle so it doesn't replay in the same
+            // order every time, and avoid immediately repeating the track
+            // that just finished. Only remember this as "the original order"
+            // if nothing was captured yet (e.g. session restored mid-shuffle)
+            // — otherwise this would clobber the true pre-shuffle order with
+            // an already-shuffled one, and turning shuffle off later would
+            // "revert" to the wrong order.
+            if (!preShuffleTailRef.current) preShuffleTailRef.current = queue;
+            reshuffled = shuffleArray(queue);
+            if (reshuffled[0] === queue[currentIndex]) {
+              const swapWith = 1 + Math.floor(Math.random() * (reshuffled.length - 1));
+              [reshuffled[0], reshuffled[swapWith]] = [reshuffled[swapWith], reshuffled[0]];
+            }
           }
+        } else {
+          setIsPlaying(false);
+          return; // reached the end with no repeat; stay on the last track
         }
       }
 
@@ -234,9 +284,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (fromEnded) setIsPlaying(true);
 
       historyRef.current.push(currentIndex);
+      if (reshuffled) setQueue(reshuffled);
       setCurrentIndex(nextIndex);
     },
-    [repeat, shuffle, queue, currentIndex],
+    [repeat, queue, currentIndex, shuffle],
   );
 
   // ---- native <audio> event wiring ----
@@ -347,12 +398,40 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [isPlaying]);
 
   // ---- public actions ----
-  const playNow = useCallback((trackIds: string[], startIndex = 0) => {
-    historyRef.current = [];
-    setQueue(trackIds);
-    setCurrentIndex(startIndex);
-    setIsPlaying(true);
-  }, []);
+  const playNow = useCallback(
+    (trackIds: string[], startIndex?: number) => {
+      historyRef.current = [];
+      preShuffleTailRef.current = null;
+
+      if (shuffle && startIndex === undefined) {
+        // "Play all" / "play this playlist": no specific track was
+        // requested, so shuffle the whole list — including which track
+        // starts — rather than always starting on the first item in list
+        // order. The original order is remembered so turning shuffle off
+        // can restore it.
+        preShuffleTailRef.current = trackIds;
+        setQueue(shuffleArray(trackIds));
+        setCurrentIndex(0);
+        setIsPlaying(true);
+        return;
+      }
+
+      const resolvedStart = startIndex ?? 0;
+      if (shuffle) {
+        // A specific track was requested (e.g. jumping to one in the Up
+        // Next list) — keep it in place and only shuffle what follows.
+        const played = trackIds.slice(0, resolvedStart + 1);
+        const tail = trackIds.slice(resolvedStart + 1);
+        preShuffleTailRef.current = tail;
+        setQueue([...played, ...shuffleArray(tail)]);
+      } else {
+        setQueue(trackIds);
+      }
+      setCurrentIndex(resolvedStart);
+      setIsPlaying(true);
+    },
+    [shuffle],
+  );
 
   const resume = useCallback(() => {
     audioRef.current?.play().catch(() => setIsPlaying(false));
@@ -408,20 +487,101 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setRepeat = useCallback((mode: RepeatMode) => setRepeatState(mode), []);
-  const toggleShuffleFn = useCallback(() => setShuffle((s) => !s), []);
+
+  const toggleShuffleFn = useCallback(() => {
+    const turningOn = !shuffle;
+    setShuffle(turningOn);
+
+    const played = queue.slice(0, currentIndex + 1);
+    const tail = queue.slice(currentIndex + 1);
+    if (tail.length === 0) return;
+
+    if (turningOn) {
+      preShuffleTailRef.current = tail;
+      setQueue([...played, ...shuffleArray(tail)]);
+    } else {
+      const original = preShuffleTailRef.current ?? [];
+      preShuffleTailRef.current = null;
+      // Restore tracks that were part of the pre-shuffle tail to their
+      // original order; anything queued after shuffling had no "original"
+      // position, so it's kept, appended at the end.
+      const pool = [...tail];
+      const restored: string[] = [];
+      for (const id of original) {
+        const idx = pool.indexOf(id);
+        if (idx !== -1) {
+          restored.push(id);
+          pool.splice(idx, 1);
+        }
+      }
+      setQueue([...played, ...restored, ...pool]);
+    }
+  }, [shuffle, queue, currentIndex]);
+
   const toggleQueueDrawer = useCallback(() => setQueueDrawerOpen((o) => !o), []);
 
-  const enqueue = useCallback((trackIds: string[]) => {
-    setQueue((q) => [...q, ...trackIds]);
-  }, []);
+  const enqueue = useCallback(
+    (trackIds: string[]) => {
+      const toAdd = dedupeAgainstQueue(queue, trackIds);
+      if (toAdd.length === 0) return 0;
 
-  const playNextFn = useCallback((trackIds: string[]) => {
-    setQueue((q) => {
-      if (q.length === 0) return trackIds;
-      const insertAt = currentIndex + 1;
-      return [...q.slice(0, insertAt), ...trackIds, ...q.slice(insertAt)];
-    });
-  }, [currentIndex]);
+      if (!shuffle) {
+        setQueue([...queue, ...toAdd]);
+      } else {
+        // Scatter new tracks randomly among the not-yet-played tail instead
+        // of always tacking them onto the end, matching shuffled playback.
+        const result = [...queue];
+        for (const id of toAdd) {
+          const minIndex = currentIndex + 1;
+          const insertAt = minIndex + Math.floor(Math.random() * (result.length - minIndex + 1));
+          result.splice(insertAt, 0, id);
+        }
+        setQueue(result);
+      }
+      return toAdd.length;
+    },
+    [queue, shuffle, currentIndex],
+  );
+
+  const playNextFn = useCallback(
+    (trackIds: string[]) => {
+      const currentId = currentIndex >= 0 ? queue[currentIndex] : undefined;
+
+      // De-dupe the incoming list itself, and drop the currently-playing
+      // track — it can't also be "next".
+      const seen = new Set<string>();
+      const targets: string[] = [];
+      for (const id of trackIds) {
+        if (id === currentId || seen.has(id)) continue;
+        seen.add(id);
+        targets.push(id);
+      }
+      if (targets.length === 0) return 0;
+
+      // Pull any of the targets out of wherever they already sit in the
+      // queue — including before the current track — so "Play next" moves
+      // them rather than leaving a stale duplicate behind. Track how many
+      // were removed from ahead of currentIndex so it still points at the
+      // same actual track once they're gone.
+      const targetSet = new Set(targets);
+      let removedBeforeCurrent = 0;
+      const remaining: string[] = [];
+      queue.forEach((id, i) => {
+        if (targetSet.has(id)) {
+          if (i < currentIndex) removedBeforeCurrent += 1;
+          return;
+        }
+        remaining.push(id);
+      });
+
+      const newCurrentIndex = currentIndex - removedBeforeCurrent;
+      const insertAt = newCurrentIndex + 1;
+      setQueue([...remaining.slice(0, insertAt), ...targets, ...remaining.slice(insertAt)]);
+      if (newCurrentIndex !== currentIndex) setCurrentIndex(newCurrentIndex);
+      return targets.length;
+    },
+    [queue, currentIndex],
+  );
 
   const removeFromQueue = useCallback(
     (index: number) => {

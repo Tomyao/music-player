@@ -113,7 +113,7 @@ export default function SongsPage() {
           {filtered.length > 0 && (
             <button
               onClick={() => playNow(filtered.map((t) => t.id))}
-              className="flex items-center gap-1.5 rounded-full bg-accent px-3 py-2 text-sm font-medium text-bg hover:bg-accent-hover"
+              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-accent px-3 py-2 text-sm font-medium text-bg hover:bg-accent-hover"
             >
               <Play className="h-4 w-4" aria-hidden="true" /> Play all
             </button>
@@ -130,12 +130,22 @@ export default function SongsPage() {
           if (track) playNow([track.id]);
         }}
         onEnqueue={(ids) => {
-          enqueue(ids);
-          showToast(`Added ${ids.length} to queue`, 'success');
+          const added = enqueue(ids);
+          if (added === 0) {
+            showToast(ids.length === 1 ? 'Already in queue' : 'Already all in queue');
+          } else if (added < ids.length) {
+            showToast(`Added ${added} to queue (${ids.length - added} already queued)`, 'success');
+          } else {
+            showToast(`Added ${added} to queue`, 'success');
+          }
         }}
         onPlayNext={(ids) => {
-          playNext(ids);
-          showToast(`Playing next: ${ids.length} song${ids.length === 1 ? '' : 's'}`, 'success');
+          const placed = playNext(ids);
+          if (placed === 0) {
+            showToast('Already playing');
+          } else {
+            showToast(`Playing next: ${placed} song${placed === 1 ? '' : 's'}`, 'success');
+          }
         }}
         currentTrackId={currentTrack?.id}
         isPlaying={isPlaying}
