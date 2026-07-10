@@ -19,18 +19,60 @@ function parseFileName(fileName: string): { title: string; artist: string } {
   return { artist: 'Unknown Artist', title: base.trim() || fileName };
 }
 
+/** MIME types the underlying parser recognizes for our two supported extensions. */
+const RECOGNIZED_MIME_TYPES: Record<string, string> = {
+  mp3: 'audio/mpeg',
+  m4a: 'audio/mp4',
+};
+
+function mimeTypeFor(file: File): string {
+  const ext = file.name.toLowerCase().split('.').pop() ?? '';
+  return RECOGNIZED_MIME_TYPES[ext] || file.type;
+}
+
+// music-metadata's tag scanner references the bare `Buffer` global directly
+// (e.g. its legacy ID3v1-trailer check) rather than importing a polyfill —
+// fine in Node, where Buffer is always present, but it throws
+// "Buffer is not defined" in a real browser, silently discarding whatever
+// had already been parsed. Vite doesn't shim Node globals automatically, so
+// it's polyfilled by hand here, lazily, only when actually needed.
+async function ensureBufferPolyfill(): Promise<void> {
+  if (typeof globalThis.Buffer !== 'undefined') return;
+  const { Buffer } = await import('buffer');
+  (globalThis as typeof globalThis & { Buffer: typeof Buffer }).Buffer = Buffer;
+}
+
 /**
- * Extracts ID3 metadata (and embedded artwork) from an MP3 file in the browser.
- * Falls back to filename parsing when tags are missing or parsing throws
- * (e.g. corrupted headers) so an import never hard-fails on one bad file.
+ * Extracts tag metadata (and embedded artwork) from an audio file in the
+ * browser — ID3 for MP3, iTunes-style atoms for M4A. Falls back to filename
+ * parsing when tags are missing or parsing throws (e.g. corrupted headers)
+ * so an import never hard-fails on one bad file.
  */
 export async function extractMetadata(file: File): Promise<ParsedAudio> {
   const fallback = parseFileName(file.name);
 
   try {
     // Dynamically imported: this library is large and only needed on the Upload page.
-    const { parseBlob } = await import('music-metadata-browser');
-    const metadata = await parseBlob(file, { duration: true, skipCovers: false });
+    const [{ parseBuffer }] = await Promise.all([
+      import('music-metadata-browser'),
+      ensureBufferPolyfill(),
+    ]);
+
+    // Deliberately not parseBlob(): it parses from a ReadableStream via
+    // Blob.stream(), and that streaming path silently returns empty tags for
+    // real-world M4A files in an actual browser (confirmed — the exact same
+    // file parses correctly through parseBuffer, and through parseBlob in a
+    // Node repro using Node's own stream/Blob polyfills, so the bug is
+    // specific to how Chromium's real Blob.stream() interacts with this
+    // deprecated package's stream-to-tokenizer adapter). Reading the whole
+    // file into memory and using parseBuffer sidesteps that path entirely —
+    // fine here since we already hold the full file for IndexedDB storage.
+    const buffer = new Uint8Array(await file.arrayBuffer());
+    const metadata = await parseBuffer(
+      buffer,
+      { mimeType: mimeTypeFor(file), size: buffer.length },
+      { duration: true, skipCovers: false },
+    );
     const { common, format } = metadata;
 
     const picture = common.picture?.[0];

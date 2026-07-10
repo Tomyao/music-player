@@ -62,7 +62,7 @@ function TrackRow({
       <button onClick={onPlay} className="flex min-w-0 flex-1 items-center gap-3 text-left">
         <Artwork
           artworkBlobId={track.artworkBlobId}
-          title={track.title}
+          album={track.album}
           artist={track.artist}
           className="h-10 w-10 shrink-0"
           rounded="sm"
@@ -274,7 +274,7 @@ export default function PlaylistDetailPage() {
                     onClick={() => addTracks([track.id])}
                     className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-surface-hover"
                   >
-                    <Artwork artworkBlobId={track.artworkBlobId} title={track.title} artist={track.artist} className="h-9 w-9 shrink-0" rounded="sm" />
+                    <Artwork artworkBlobId={track.artworkBlobId} album={track.album} artist={track.artist} className="h-9 w-9 shrink-0" rounded="sm" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm">{track.title}</span>
                       <span className="block truncate text-xs text-text-muted">{track.artist}</span>

@@ -1,3 +1,12 @@
+/** Best-effort MIME type when the browser doesn't report one (common for .m4a on some OSes). */
+export function guessMimeType(file: File): string {
+  if (file.type) return file.type;
+  const ext = file.name.toLowerCase().split('.').pop();
+  if (ext === 'm4a') return 'audio/mp4';
+  if (ext === 'mp3') return 'audio/mpeg';
+  return '';
+}
+
 /** Formats seconds as "m:ss", or "h:mm:ss" once it crosses an hour. */
 export function formatDuration(totalSeconds: number): string {
   if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return '0:00';
@@ -49,8 +58,8 @@ function hashString(input: string): number {
   return hash >>> 0;
 }
 
-function initialsFor(title: string, artist: string): string {
-  const source = artist !== 'Unknown Artist' ? artist : title;
+function initialsFor(album: string, artist: string): string {
+  const source = artist !== 'Unknown Artist' ? artist : album;
   const words = source.trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return '?';
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
@@ -59,14 +68,16 @@ function initialsFor(title: string, artist: string): string {
 
 /**
  * Deterministic gradient placeholder cover, used whenever a track has no
- * embedded artwork. Same title/artist always produces the same art, so the
- * UI stays stable across renders and sessions without storing anything.
+ * embedded artwork. Keyed by album/artist (not title), so every track from
+ * the same album shares one placeholder — like a real cover — instead of
+ * each song getting its own color. Stays stable across renders and sessions
+ * without storing anything.
  */
-export function placeholderArtworkDataUrl(title: string, artist: string): string {
-  const seed = hashString(`${artist}::${title}`);
+export function placeholderArtworkDataUrl(album: string, artist: string): string {
+  const seed = hashString(`${artist}::${album}`);
   const hueA = seed % 360;
   const hueB = (hueA + 55 + (seed % 40)) % 360;
-  const initials = initialsFor(title, artist);
+  const initials = initialsFor(album, artist);
 
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">

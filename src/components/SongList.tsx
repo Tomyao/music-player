@@ -183,7 +183,7 @@ export function SongList({
               >
                 <Artwork
                   artworkBlobId={track.artworkBlobId}
-                  title={track.title}
+                  album={track.album}
                   artist={track.artist}
                   className="h-10 w-10 shrink-0"
                   rounded="sm"

@@ -52,7 +52,7 @@ function QueueRow({ track, index, isCurrent, onRemove }: QueueRowProps) {
       </button>
       <Artwork
         artworkBlobId={track.artworkBlobId}
-        title={track.title}
+        album={track.album}
         artist={track.artist}
         className="h-9 w-9 shrink-0"
         rounded="sm"

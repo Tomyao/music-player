@@ -38,7 +38,7 @@ export function PlaylistCard({ playlist, onRename, onDelete }: PlaylistCardProps
                   <Artwork
                     key={t.id}
                     artworkBlobId={t.artworkBlobId}
-                    title={t.title}
+                    album={t.album}
                     artist={t.artist}
                     rounded="sm"
                     className="h-full w-full"

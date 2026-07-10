@@ -4,7 +4,7 @@ import { objectUrlCache, placeholderArtworkDataUrl } from '@/lib/audio';
 
 interface ArtworkProps {
   artworkBlobId?: string;
-  title: string;
+  album: string;
   artist: string;
   className?: string;
   rounded?: 'sm' | 'md' | 'lg';
@@ -13,12 +13,12 @@ interface ArtworkProps {
 const roundedMap = { sm: 'rounded', md: 'rounded-lg', lg: 'rounded-2xl' };
 
 /** Resolves a track's artwork blob to an <img>, falling back to a deterministic gradient. */
-export function Artwork({ artworkBlobId, title, artist, className = '', rounded = 'md' }: ArtworkProps) {
-  const [src, setSrc] = useState<string>(() => placeholderArtworkDataUrl(title, artist));
+export function Artwork({ artworkBlobId, album, artist, className = '', rounded = 'md' }: ArtworkProps) {
+  const [src, setSrc] = useState<string>(() => placeholderArtworkDataUrl(album, artist));
 
   useEffect(() => {
     if (!artworkBlobId) {
-      setSrc(placeholderArtworkDataUrl(title, artist));
+      setSrc(placeholderArtworkDataUrl(album, artist));
       return;
     }
 
@@ -29,7 +29,7 @@ export function Artwork({ artworkBlobId, title, artist, className = '', rounded 
       const doc = await db.blobs.get(artworkBlobId);
       if (cancelled) return;
       if (!doc) {
-        setSrc(placeholderArtworkDataUrl(title, artist));
+        setSrc(placeholderArtworkDataUrl(album, artist));
         return;
       }
       const url = objectUrlCache.acquire(doc.id, doc.blob);
@@ -41,7 +41,7 @@ export function Artwork({ artworkBlobId, title, artist, className = '', rounded 
       cancelled = true;
       if (acquiredId) objectUrlCache.release(acquiredId);
     };
-  }, [artworkBlobId, title, artist]);
+  }, [artworkBlobId, album, artist]);
 
   return (
     <img

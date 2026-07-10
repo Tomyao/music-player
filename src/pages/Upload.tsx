@@ -4,6 +4,7 @@ import { UploadDropzone } from '@/components/UploadDropzone';
 import { db } from '@/db/indexedDb';
 import { extractMetadata } from '@/lib/id3';
 import { hashFile } from '@/lib/hash';
+import { guessMimeType } from '@/lib/audio';
 import { isSeedEnabled, seedDemoLibrary } from '@/lib/seed';
 import { useToast } from '@/hooks/useToast';
 import type { Track } from '@/types';
@@ -57,7 +58,7 @@ export default function UploadPage() {
         const meta = await extractMetadata(file);
 
         const audioBlobId = crypto.randomUUID();
-        await db.blobs.put({ id: audioBlobId, type: 'audio', blob: file, mimeType: file.type || 'audio/mpeg' });
+        await db.blobs.put({ id: audioBlobId, type: 'audio', blob: file, mimeType: guessMimeType(file) || 'audio/mpeg' });
 
         let artworkBlobId: string | undefined;
         if (meta.artwork) {
@@ -85,7 +86,7 @@ export default function UploadPage() {
           contentHash,
           fileName: file.name,
           fileSize: file.size,
-          mimeType: file.type || 'audio/mpeg',
+          mimeType: guessMimeType(file) || 'audio/mpeg',
           createdAt: now,
           updatedAt: now,
         };
@@ -124,7 +125,7 @@ export default function UploadPage() {
     <div className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="text-2xl font-semibold">Upload music</h1>
       <p className="mt-1 text-text-muted">
-        Drop in MP3 files to add them to your local library. Everything stays on this device.
+        Drop in MP3 or M4A files to add them to your local library. Everything stays on this device.
       </p>
 
       <div className="mt-6">

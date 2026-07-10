@@ -6,8 +6,11 @@ interface UploadDropzoneProps {
   disabled?: boolean;
 }
 
-function isMp3(file: File): boolean {
-  return file.type === 'audio/mpeg' || /\.mp3$/i.test(file.name);
+const SUPPORTED_EXTENSIONS = /\.(mp3|m4a)$/i;
+const SUPPORTED_MIME_TYPES = new Set(['audio/mpeg', 'audio/mp4', 'audio/x-m4a', 'audio/m4a']);
+
+function isSupportedAudioFile(file: File): boolean {
+  return SUPPORTED_MIME_TYPES.has(file.type) || SUPPORTED_EXTENSIONS.test(file.name);
 }
 
 export function UploadDropzone({ onFiles, disabled }: UploadDropzoneProps) {
@@ -17,7 +20,7 @@ export function UploadDropzone({ onFiles, disabled }: UploadDropzoneProps) {
   const handleFiles = useCallback(
     (fileList: FileList | null) => {
       if (!fileList) return;
-      const files = Array.from(fileList).filter(isMp3);
+      const files = Array.from(fileList).filter(isSupportedAudioFile);
       if (files.length) onFiles(files);
     },
     [onFiles],
@@ -35,7 +38,7 @@ export function UploadDropzone({ onFiles, disabled }: UploadDropzoneProps) {
       role="button"
       tabIndex={0}
       aria-disabled={disabled}
-      aria-label="Upload MP3 files: drag and drop or press Enter to browse"
+      aria-label="Upload MP3 or M4A files: drag and drop or press Enter to browse"
       onClick={() => !disabled && inputRef.current?.click()}
       onKeyDown={(e) => {
         if (!disabled && (e.key === 'Enter' || e.key === ' ')) {
@@ -55,7 +58,7 @@ export function UploadDropzone({ onFiles, disabled }: UploadDropzoneProps) {
     >
       <UploadCloud className="h-10 w-10 text-accent" aria-hidden="true" />
       <div>
-        <p className="font-medium text-text">Drop MP3 files here, or click to browse</p>
+        <p className="font-medium text-text">Drop MP3 or M4A files here, or click to browse</p>
         <p className="mt-1 text-sm text-text-muted">
           Metadata and album art are extracted automatically. Duplicate files are skipped.
         </p>
@@ -63,7 +66,12 @@ export function UploadDropzone({ onFiles, disabled }: UploadDropzoneProps) {
       <input
         ref={inputRef}
         type="file"
-        accept="audio/mpeg,.mp3"
+        // Extension-only: mixing specific MIME types with extensions here
+        // makes Windows' file picker fall back to a generic "Custom Files"
+        // filter that can hide real files depending on how they're
+        // registered. Plain extensions are what the OS reliably recognizes;
+        // isSupportedAudioFile() below is the real gatekeeper anyway.
+        accept=".mp3,.m4a"
         multiple
         disabled={disabled}
         className="sr-only"

@@ -67,7 +67,7 @@ export default function NowPlayingPage() {
       <div className="flex flex-col items-center">
         <Artwork
           artworkBlobId={currentTrack.artworkBlobId}
-          title={currentTrack.title}
+          album={currentTrack.album}
           artist={currentTrack.artist}
           rounded="lg"
           className="h-72 w-72 shadow-2xl sm:h-80 sm:w-80"
@@ -170,7 +170,7 @@ export default function NowPlayingPage() {
                 >
                   <Artwork
                     artworkBlobId={track.artworkBlobId}
-                    title={track.title}
+                    album={track.album}
                     artist={track.artist}
                     className="h-10 w-10 shrink-0"
                     rounded="sm"

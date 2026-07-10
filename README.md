@@ -1,7 +1,7 @@
 # Waveform — Local Music Player
 
-A Spotify-style, installable PWA for listening to your own MP3s. Upload
-files, get ID3 metadata and album art extracted automatically, and
+A Spotify-style, installable PWA for listening to your own music. Upload
+MP3 or M4A files, get tag metadata and album art extracted automatically, and
 everything — audio, artwork, playlists — is stored locally in IndexedDB.
 There is no backend and no account: your library never leaves the browser.
 
@@ -194,12 +194,12 @@ fundamentally a small, occasional export.
   icons in Chromium browsers; for broadest compatibility (older Android
   WebViews, `apple-touch-icon` on iOS wants a raster image) swap in real
   PNG exports at 192×192 and 512×512 before shipping to end users.
-- **No server-side transcoding.** Only browser-decodable formats play
-  (MP3 via the native `<audio>` element); the uploader filters to `.mp3`
-  and `audio/mpeg`.
-- **Shuffle** picks a uniformly random next track each time rather than
-  precomputing a shuffled play-through order, so it's possible (if
-  unlikely) to hear the same track close together in a long session.
+- **No server-side transcoding.** Only browser-decodable formats play via
+  the native `<audio>` element; the uploader filters to `.mp3` and `.m4a`
+  (MP3 and AAC/M4A are natively supported by every major browser).
+- **Shuffle** reshuffles the not-yet-played tail of the queue in place
+  (visible in the Queue panel) rather than picking randomly at each step,
+  and reshuffles again each time repeat-all loops back to the top.
 
 ## Deploying to Vercel
 

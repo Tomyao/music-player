@@ -123,7 +123,7 @@ export function PlayerBar() {
           >
             <Artwork
               artworkBlobId={currentTrack.artworkBlobId}
-              title={currentTrack.title}
+              album={currentTrack.album}
               artist={currentTrack.artist}
               className="h-12 w-12 shrink-0"
               rounded="sm"
