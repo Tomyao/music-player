@@ -1,4 +1,4 @@
-# Waveform — Local Music Player
+# Musique — Local Music Player
 
 A Spotify-style, installable PWA for listening to your own music. Upload
 MP3 or M4A files, get tag metadata and album art extracted automatically, and
@@ -13,13 +13,16 @@ There is no backend and no account: your library never leaves the browser.
 
 - **Upload** — drag-and-drop or file picker, batch import, per-file
   progress, dedupe by SHA-256 content hash so re-imports are skipped.
-- **All Songs** — search across title/artist/album, filter by genre, sort
-  by any column, multi-select to bulk queue / play-next / add to playlist.
+- **Library** — search across title/artist/album, sort by any column,
+  multi-select to bulk queue / play-next / remove; toggle between a flat
+  Songs list and an Albums grid that drills into one album's tracklist.
 - **Playlists** — create, rename, delete; drag-and-drop reordering inside
   a playlist; add songs from a searchable picker.
-- **Now Playing** — large artwork, scrubbable timeline, shuffle/repeat,
-  "Up next" preview, and a collapsible, drag-reorderable queue drawer
-  available from any page via the player bar.
+- **Persistent player bar** — visible on every page: scrubbable timeline,
+  play/pause/prev/next, shuffle/repeat, volume, and a collapsible,
+  drag-reorderable queue drawer. The dedicated Now Playing page is a
+  simple, uncluttered "poster" view (artwork, title, artist, album) since
+  the bar already covers every control.
 - **Offline-first** — audio and artwork are read from IndexedDB, so
   playback and browsing work with no network connection after first load.
 - **Installable PWA** — manifest + service worker (Workbox via
@@ -209,7 +212,7 @@ fundamentally a small, occasional export.
    `npm run build`, output directory `dist` (both auto-detected from
    `package.json`/`vercel.json`).
 4. Deploy. `vercel.json` in this repo already rewrites all non-asset
-   routes to `/index.html` so client-side routing (`/songs`,
+   routes to `/index.html` so client-side routing (`/library`,
    `/playlists/:id`, etc.) works on refresh/deep-link.
 5. No environment variables or backend services are required — the app
    is fully static and client-side.
@@ -234,10 +237,9 @@ after first `npm run dev`):
    shows the track, and the transport controls work (play/pause, seek,
    next/prev, shuffle, repeat).
 6. **Collapse/expand queue** — click the queue icon in the player bar;
-   the queue drawer slides in showing "up next" tracks with drag handles;
-   toggling again (or its own close button, or <kbd>Escape</kbd>) hides
-   it. On desktop, the page content shifts to make room rather than being
-   covered.
+   the queue drawer slides in as an overlay showing "up next" tracks with
+   drag handles; toggling again (or its own close button, or
+   <kbd>Escape</kbd>) hides it.
 7. **Create playlist** — go to *Playlists* → "New playlist", name it,
    confirm it appears in the grid.
 8. **Add songs** — open the playlist, "Add songs", pick a few tracks from

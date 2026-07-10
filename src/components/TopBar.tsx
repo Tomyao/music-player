@@ -1,13 +1,12 @@
 import { NavLink } from 'react-router-dom';
-import { ListMusic, Music2, Upload, Radio } from 'lucide-react';
+import { ListMusic, Music2, Upload } from 'lucide-react';
 import { BackupMenu } from '@/components/BackupMenu';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
 const links = [
-  { to: '/songs', label: 'All Songs', icon: Music2 },
+  { to: '/library', label: 'Library', icon: Music2 },
   { to: '/playlists', label: 'Playlists', icon: ListMusic },
   { to: '/upload', label: 'Upload', icon: Upload },
-  { to: '/now-playing', label: 'Now Playing', icon: Radio },
 ];
 
 export function TopBar() {
@@ -15,13 +14,13 @@ export function TopBar() {
     <header className="sticky top-0 z-30 border-b border-border bg-bg/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4">
         <NavLink
-          to="/songs"
+          to="/library"
           className="flex items-center gap-2 font-semibold tracking-tight"
         >
           <span className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-emerald-400 to-sky-500 text-bg">
             <Music2 className="h-4 w-4" aria-hidden="true" />
           </span>
-          Waveform
+          Musique
         </NavLink>
 
         <nav aria-label="Main" className="flex gap-1">

@@ -1,6 +1,6 @@
 {
-  "name": "Waveform — Local Music Player",
-  "short_name": "Waveform",
+  "name": "Musique — Local Music Player",
+  "short_name": "Musique",
   "description": "Upload MP3s and listen offline. All your music and playlists stay on your device.",
   "start_url": "/",
   "scope": "/",

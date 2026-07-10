@@ -23,13 +23,13 @@ export default function App() {
 
       <main id="main-content">
         <Routes>
-          <Route path="/" element={<Navigate to="/songs" replace />} />
-          <Route path="/songs" element={<SongsPage />} />
+          <Route path="/" element={<Navigate to="/library" replace />} />
+          <Route path="/library" element={<SongsPage />} />
           <Route path="/upload" element={<UploadPage />} />
           <Route path="/playlists" element={<PlaylistsPage />} />
           <Route path="/playlists/:id" element={<PlaylistDetailPage />} />
           <Route path="/now-playing" element={<NowPlayingPage />} />
-          <Route path="*" element={<Navigate to="/songs" replace />} />
+          <Route path="*" element={<Navigate to="/library" replace />} />
         </Routes>
       </main>
 

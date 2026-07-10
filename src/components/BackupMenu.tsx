@@ -26,7 +26,7 @@ export function BackupMenu() {
     try {
       const data = await exportLibrary(includeBlobs);
       const suffix = includeBlobs ? 'with-audio' : 'metadata';
-      downloadJson(data, `waveform-backup-${suffix}-${new Date().toISOString().slice(0, 10)}.json`);
+      downloadJson(data, `musique-backup-${suffix}-${new Date().toISOString().slice(0, 10)}.json`);
       showToast('Backup downloaded', 'success');
     } catch (err) {
       console.error('[backup] export failed', err);
