@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import {
   ListMusic,
+  Music2,
   Pause,
   Play,
   Repeat,
@@ -23,7 +24,7 @@ function VolumeIcon({ volume }: { volume: number }) {
   return <Volume2 className="h-4 w-4" aria-hidden="true" />;
 }
 
-/** Persistent transport bar, visible on every page whenever a track is loaded. */
+/** Persistent transport bar, always visible; shows a placeholder when nothing is loaded. */
 export function PlayerBar() {
   const {
     currentTrack,
@@ -48,9 +49,8 @@ export function PlayerBar() {
 
   const lastVolumeRef = useRef(volume || 1);
 
-  if (!currentTrack) return null;
-
   const progressPct = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const disabled = !currentTrack;
 
   const cycleRepeat = () => {
     const order: Array<typeof repeat> = ['off', 'all', 'one'];
@@ -85,7 +85,8 @@ export function PlayerBar() {
           value={currentTime}
           onChange={(e) => seek(Number(e.target.value))}
           aria-label="Seek"
-          className="h-1 flex-1 accent-accent"
+          disabled={disabled}
+          className="h-1 flex-1 accent-accent disabled:opacity-40"
         />
         <span className="w-9 text-[10px] tabular-nums text-text-muted">
           {formatDuration(duration)}
@@ -93,46 +94,64 @@ export function PlayerBar() {
       </div>
 
       <div className="mx-auto flex max-w-6xl items-center gap-4 px-3 py-2 sm:py-3">
-        <Link
-          to="/now-playing"
-          className="flex min-w-0 flex-1 items-center gap-3 sm:flex-none sm:w-64"
-        >
-          <Artwork
-            artworkBlobId={currentTrack.artworkBlobId}
-            title={currentTrack.title}
-            artist={currentTrack.artist}
-            className="h-12 w-12 shrink-0"
-            rounded="sm"
-          />
-          <span className="min-w-0">
-            <span className="block truncate text-sm font-medium">{currentTrack.title}</span>
-            <span className="block truncate text-xs text-text-muted">{currentTrack.artist}</span>
-          </span>
-        </Link>
+        {currentTrack ? (
+          <Link
+            to="/now-playing"
+            className="flex min-w-0 flex-1 items-center gap-3 sm:flex-none sm:w-64"
+          >
+            <Artwork
+              artworkBlobId={currentTrack.artworkBlobId}
+              title={currentTrack.title}
+              artist={currentTrack.artist}
+              className="h-12 w-12 shrink-0"
+              rounded="sm"
+            />
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-medium">{currentTrack.title}</span>
+              <span className="block truncate text-xs text-text-muted">{currentTrack.artist}</span>
+            </span>
+          </Link>
+        ) : (
+          <div className="flex min-w-0 flex-1 items-center gap-3 sm:flex-none sm:w-64">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-surface-hover text-text-muted">
+              <Music2 className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-medium text-text-muted">
+                Nothing playing
+              </span>
+              <span className="block truncate text-xs text-text-muted">
+                Pick a song to get started
+              </span>
+            </span>
+          </div>
+        )}
 
         <div className="hidden flex-1 flex-col items-center gap-1 sm:flex">
           <div className="flex items-center gap-4">
             <button
               onClick={toggleShuffle}
+              disabled={disabled}
               aria-pressed={shuffle}
               aria-label="Toggle shuffle"
               title="Shuffle"
-              className={`rounded-full p-2 hover:bg-surface-hover ${shuffle ? 'text-accent' : 'text-text-muted'}`}
+              className={`rounded-full p-2 hover:bg-surface-hover disabled:pointer-events-none disabled:opacity-40 ${shuffle ? 'text-accent' : 'text-text-muted'}`}
             >
               <Shuffle className="h-4 w-4" aria-hidden="true" />
             </button>
             <button
               onClick={prev}
+              disabled={disabled}
               aria-label="Previous track"
-              className="rounded-full p-2 text-text hover:bg-surface-hover"
+              className="rounded-full p-2 text-text hover:bg-surface-hover disabled:pointer-events-none disabled:opacity-40"
             >
               <SkipBack className="h-5 w-5" aria-hidden="true" />
             </button>
             <button
               onClick={togglePlay}
-              disabled={isLoading}
+              disabled={disabled || isLoading}
               aria-label={isPlaying ? 'Pause' : 'Play'}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-text text-bg hover:scale-105 disabled:opacity-50"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-text text-bg hover:scale-105 disabled:pointer-events-none disabled:opacity-40"
             >
               {isPlaying ? (
                 <Pause className="h-4 w-4" aria-hidden="true" />
@@ -142,17 +161,19 @@ export function PlayerBar() {
             </button>
             <button
               onClick={next}
+              disabled={disabled}
               aria-label="Next track"
-              className="rounded-full p-2 text-text hover:bg-surface-hover"
+              className="rounded-full p-2 text-text hover:bg-surface-hover disabled:pointer-events-none disabled:opacity-40"
             >
               <SkipForward className="h-5 w-5" aria-hidden="true" />
             </button>
             <button
               onClick={cycleRepeat}
+              disabled={disabled}
               aria-pressed={repeat !== 'off'}
               aria-label={`Repeat: ${repeat}`}
               title={`Repeat: ${repeat}`}
-              className={`rounded-full p-2 hover:bg-surface-hover ${repeat !== 'off' ? 'text-accent' : 'text-text-muted'}`}
+              className={`rounded-full p-2 hover:bg-surface-hover disabled:pointer-events-none disabled:opacity-40 ${repeat !== 'off' ? 'text-accent' : 'text-text-muted'}`}
             >
               {repeat === 'one' ? (
                 <Repeat1 className="h-4 w-4" aria-hidden="true" />
@@ -173,8 +194,9 @@ export function PlayerBar() {
               value={currentTime}
               onChange={(e) => seek(Number(e.target.value))}
               aria-label="Seek"
+              disabled={disabled}
               style={{ background: `linear-gradient(to right, rgb(var(--color-accent)) ${progressPct}%, rgb(var(--color-border)) ${progressPct}%)` }}
-              className="h-1 flex-1 appearance-none rounded-full accent-accent"
+              className="h-1 flex-1 appearance-none rounded-full accent-accent disabled:opacity-40"
             />
             <span className="w-9 text-[11px] tabular-nums text-text-muted">
               {formatDuration(duration)}
@@ -185,16 +207,17 @@ export function PlayerBar() {
         <div className="flex items-center gap-1 sm:w-64 sm:justify-end">
           <button
             onClick={togglePlay}
-            disabled={isLoading}
+            disabled={disabled || isLoading}
             aria-label={isPlaying ? 'Pause' : 'Play'}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-text text-bg sm:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-text text-bg sm:hidden disabled:pointer-events-none disabled:opacity-40"
           >
             {isPlaying ? <Pause className="h-4 w-4" aria-hidden="true" /> : <Play className="h-4 w-4 translate-x-0.5" aria-hidden="true" />}
           </button>
           <button
             onClick={next}
+            disabled={disabled}
             aria-label="Next track"
-            className="rounded-full p-2 text-text hover:bg-surface-hover sm:hidden"
+            className="rounded-full p-2 text-text hover:bg-surface-hover sm:hidden disabled:pointer-events-none disabled:opacity-40"
           >
             <SkipForward className="h-5 w-5" aria-hidden="true" />
           </button>
