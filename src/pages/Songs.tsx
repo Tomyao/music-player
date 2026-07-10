@@ -17,10 +17,10 @@ export default function SongsPage() {
 
   const [query, setQuery] = useState('');
   const [genre, setGenre] = useState('all');
-  const [sortKey, setSortKey] = useState<SortKey>('createdAt');
-  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [sortKey, setSortKey] = useState<SortKey>('title');
+  const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [pendingDelete, setPendingDelete] = useState<Track | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Track[] | null>(null);
 
   const genres = useMemo(() => {
     const set = new Set((tracks ?? []).map((t) => t.genre).filter(Boolean) as string[]);
@@ -59,10 +59,18 @@ export default function SongsPage() {
   };
 
   const handleDelete = async () => {
-    if (!pendingDelete) return;
-    await deleteTrackCascade(pendingDelete.id);
-    removeTrackFromQueue(pendingDelete.id);
-    showToast(`Removed "${pendingDelete.title}"`, 'success');
+    if (!pendingDelete || pendingDelete.length === 0) return;
+    for (const track of pendingDelete) {
+      await deleteTrackCascade(track.id);
+      removeTrackFromQueue(track.id);
+    }
+    showToast(
+      pendingDelete.length === 1
+        ? `Removed "${pendingDelete[0].title}"`
+        : `Removed ${pendingDelete.length} songs`,
+      'success',
+    );
+    setSelectedIds(new Set());
     setPendingDelete(null);
   };
 
@@ -117,7 +125,10 @@ export default function SongsPage() {
         tracks={filtered}
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
-        onPlay={(index) => playNow(filtered.map((t) => t.id), index)}
+        onPlay={(index) => {
+          const track = filtered[index];
+          if (track) playNow([track.id]);
+        }}
         onEnqueue={(ids) => {
           enqueue(ids);
           showToast(`Added ${ids.length} to queue`, 'success');
@@ -128,18 +139,21 @@ export default function SongsPage() {
         }}
         currentTrackId={currentTrack?.id}
         isPlaying={isPlaying}
-        onRemove={setPendingDelete}
-        removeLabel="Remove from library"
+        onRemoveSelected={setPendingDelete}
         sortKey={sortKey}
         sortDir={sortDir}
         onSort={onSort}
         emptyMessage="No songs match your search."
       />
 
-      {pendingDelete && (
+      {pendingDelete && pendingDelete.length > 0 && (
         <ConfirmDialog
-          title="Remove song?"
-          description={`"${pendingDelete.title}" will be deleted from your library and any playlists. This can't be undone.`}
+          title={pendingDelete.length === 1 ? 'Remove song?' : `Remove ${pendingDelete.length} songs?`}
+          description={
+            pendingDelete.length === 1
+              ? `"${pendingDelete[0].title}" will be deleted from your library and any playlists. This can't be undone.`
+              : `These ${pendingDelete.length} songs will be deleted from your library and any playlists. This can't be undone.`
+          }
           confirmLabel="Remove"
           onConfirm={handleDelete}
           onCancel={() => setPendingDelete(null)}

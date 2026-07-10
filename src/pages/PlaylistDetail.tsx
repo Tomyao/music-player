@@ -223,7 +223,7 @@ export default function PlaylistDetailPage() {
               track={track}
               isCurrent={track.id === currentTrack?.id}
               isPlaying={isPlaying}
-              onPlay={() => playNow(playlist.trackIds, playlist.trackIds.indexOf(track.id))}
+              onPlay={() => playNow([track.id])}
               onRemove={() => removeTrack(track.id)}
             />
           ))}
@@ -235,13 +235,13 @@ export default function PlaylistDetailPage() {
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={tracks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
             <ul className="space-y-0.5">
-              {tracks.map((track, index) => (
+              {tracks.map((track) => (
                 <TrackRow
                   key={track.id}
                   track={track}
                   isCurrent={track.id === currentTrack?.id}
                   isPlaying={isPlaying}
-                  onPlay={() => playNow(playlist.trackIds, index)}
+                  onPlay={() => playNow([track.id])}
                   onRemove={() => removeTrack(track.id)}
                 />
               ))}

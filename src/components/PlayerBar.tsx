@@ -13,7 +13,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePlayer } from '@/hooks/usePlayer';
 import { Artwork } from '@/components/Artwork';
 import { formatDuration } from '@/lib/audio';
@@ -28,6 +28,7 @@ function VolumeIcon({ volume }: { volume: number }) {
 export function PlayerBar() {
   const {
     currentTrack,
+    queue,
     isPlaying,
     isLoading,
     currentTime,
@@ -48,9 +49,30 @@ export function PlayerBar() {
   } = usePlayer();
 
   const lastVolumeRef = useRef(volume || 1);
+  const [volumeOpen, setVolumeOpen] = useState(false);
+  const volumeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!volumeOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (volumeRef.current && !volumeRef.current.contains(e.target as Node)) setVolumeOpen(false);
+    };
+    const onEscape = (e: KeyboardEvent) => e.key === 'Escape' && setVolumeOpen(false);
+    document.addEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onEscape);
+    return () => {
+      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('keydown', onEscape);
+    };
+  }, [volumeOpen]);
 
   const progressPct = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const hasQueue = queue.length > 0;
+  // Shuffle/prev/next/repeat/seek only make sense once a track is actually
+  // loaded; Play itself stays enabled when the queue has tracks queued up
+  // but nothing has been started yet, so it can kick off playback.
   const disabled = !currentTrack;
+  const playDisabled = (!currentTrack && !hasQueue) || isLoading;
 
   const cycleRepeat = () => {
     const order: Array<typeof repeat> = ['off', 'all', 'one'];
@@ -121,7 +143,7 @@ export function PlayerBar() {
                 Nothing playing
               </span>
               <span className="block truncate text-xs text-text-muted">
-                Pick a song to get started
+                {hasQueue ? 'Press play to start queue' : 'Pick a song to get started'}
               </span>
             </span>
           </div>
@@ -149,7 +171,7 @@ export function PlayerBar() {
             </button>
             <button
               onClick={togglePlay}
-              disabled={disabled || isLoading}
+              disabled={playDisabled}
               aria-label={isPlaying ? 'Pause' : 'Play'}
               className="flex h-9 w-9 items-center justify-center rounded-full bg-text text-bg hover:scale-105 disabled:pointer-events-none disabled:opacity-40"
             >
@@ -207,7 +229,7 @@ export function PlayerBar() {
         <div className="flex items-center gap-1 sm:w-64 sm:justify-end">
           <button
             onClick={togglePlay}
-            disabled={disabled || isLoading}
+            disabled={playDisabled}
             aria-label={isPlaying ? 'Pause' : 'Play'}
             className="flex h-9 w-9 items-center justify-center rounded-full bg-text text-bg sm:hidden disabled:pointer-events-none disabled:opacity-40"
           >
@@ -222,20 +244,42 @@ export function PlayerBar() {
             <SkipForward className="h-5 w-5" aria-hidden="true" />
           </button>
 
-          <div className="hidden items-center gap-1 md:flex">
-            <button onClick={toggleMute} aria-label={volume === 0 ? 'Unmute' : 'Mute'} className="rounded-full p-2 text-text-muted hover:bg-surface-hover hover:text-text">
+          <div className="relative" ref={volumeRef}>
+            <button
+              onClick={() => setVolumeOpen((o) => !o)}
+              aria-label="Volume"
+              aria-haspopup="true"
+              aria-expanded={volumeOpen}
+              className="rounded-full p-2 text-text-muted hover:bg-surface-hover hover:text-text"
+            >
               <VolumeIcon volume={volume} />
             </button>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={volume}
-              onChange={(e) => setVolume(Number(e.target.value))}
-              aria-label="Volume"
-              className="h-1 w-20 accent-accent"
-            />
+            {volumeOpen && (
+              <div
+                role="group"
+                aria-label="Volume control"
+                className="absolute bottom-full right-0 mb-2 flex animate-fade-in items-center gap-2 rounded-full border border-border bg-surface px-3 py-2 shadow-xl"
+              >
+                <button
+                  onClick={toggleMute}
+                  aria-label={volume === 0 ? 'Unmute' : 'Mute'}
+                  className="text-text-muted hover:text-text"
+                >
+                  <VolumeIcon volume={volume} />
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={volume}
+                  onChange={(e) => setVolume(Number(e.target.value))}
+                  aria-label="Volume"
+                  autoFocus
+                  className="h-1 w-24 accent-accent"
+                />
+              </div>
+            )}
           </div>
 
           <button

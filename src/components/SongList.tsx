@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { ArrowDown, ArrowUp, ListEnd, ListPlus, Pause, Play, Trash2 } from 'lucide-react';
 import { Artwork } from '@/components/Artwork';
-import { AddToPlaylistMenu } from '@/components/AddToPlaylistMenu';
 import { formatDuration } from '@/lib/audio';
 import type { SortDir, SortKey, Track } from '@/types';
 
@@ -12,10 +11,10 @@ interface SongListProps {
   onPlay: (startIndex: number) => void;
   onEnqueue: (trackIds: string[]) => void;
   onPlayNext: (trackIds: string[]) => void;
+  /** Bulk removal, driven by the checkbox selection rather than a per-row button. */
+  onRemoveSelected: (tracks: Track[]) => void;
   currentTrackId?: string;
   isPlaying?: boolean;
-  onRemove?: (track: Track) => void;
-  removeLabel?: string;
   sortKey?: SortKey;
   sortDir?: SortDir;
   onSort?: (key: SortKey) => void;
@@ -26,7 +25,7 @@ interface SongListProps {
 
 const columns: Array<{ key: SortKey; label: string; className: string }> = [
   { key: 'title', label: 'Title', className: 'flex-1 min-w-0' },
-  { key: 'album', label: 'Album', className: 'hidden w-48 md:block' },
+  { key: 'album', label: 'Album', className: 'hidden w-48 md:flex' },
   { key: 'duration', label: 'Time', className: 'w-16 text-right' },
 ];
 
@@ -37,10 +36,9 @@ export function SongList({
   onPlay,
   onEnqueue,
   onPlayNext,
+  onRemoveSelected,
   currentTrackId,
   isPlaying,
-  onRemove,
-  removeLabel = 'Remove',
   sortKey,
   sortDir,
   onSort,
@@ -61,7 +59,10 @@ export function SongList({
     onSelectionChange(next);
   };
 
-  const selectedTrackIds = tracks.filter((t) => selectedIds.has(t.id)).map((t) => t.id);
+  const selectedTracks = tracks.filter((t) => selectedIds.has(t.id));
+  // Track numbers are only meaningful when grouped by album, and only worth
+  // a column at all if at least one visible track actually has one tagged.
+  const showNumberColumn = sortKey === 'album' && tracks.some((t) => t.trackNo != null);
 
   if (tracks.length === 0) {
     return <p className="py-12 text-center text-sm text-text-muted">{emptyMessage}</p>;
@@ -74,20 +75,12 @@ export function SongList({
           <span className="font-medium">{selectedIds.size} selected</span>
           <div className="ml-auto flex items-center gap-1">
             <button
-              onClick={() => onEnqueue(selectedTrackIds)}
-              className="flex items-center gap-1 rounded-full px-2 py-1 hover:bg-surface-hover"
-              title="Add to queue"
+              onClick={() => onRemoveSelected(selectedTracks)}
+              className="flex items-center gap-1 rounded-full px-2 py-1 text-danger hover:bg-danger/10"
+              title="Remove from library"
             >
-              <ListPlus className="h-4 w-4" aria-hidden="true" /> Queue
+              <Trash2 className="h-4 w-4" aria-hidden="true" /> Remove from library
             </button>
-            <button
-              onClick={() => onPlayNext(selectedTrackIds)}
-              className="flex items-center gap-1 rounded-full px-2 py-1 hover:bg-surface-hover"
-              title="Play next"
-            >
-              <ListEnd className="h-4 w-4" aria-hidden="true" /> Play next
-            </button>
-            <AddToPlaylistMenu trackIds={selectedTrackIds} />
             <button
               onClick={() => onSelectionChange(new Set())}
               className="rounded-full px-2 py-1 text-text-muted hover:bg-surface-hover"
@@ -109,7 +102,7 @@ export function SongList({
           aria-label="Select all songs"
           className="h-4 w-4 accent-accent"
         />
-        <span className="w-8 text-center">#</span>
+        {showNumberColumn && <span className="w-8 text-center">#</span>}
         {columns.map((col) => (
           <button
             key={col.key}
@@ -149,22 +142,26 @@ export function SongList({
 
               {renderLeading?.(track, index)}
 
-              <button
-                onClick={() => onPlay(index)}
-                className="flex w-8 items-center justify-center text-text-muted hover:text-text"
-                aria-label={isCurrent && isPlaying ? `Pause ${track.title}` : `Play ${track.title}`}
-              >
-                {isCurrent && isPlaying ? (
-                  <Pause className="h-4 w-4 text-accent" aria-hidden="true" />
-                ) : isCurrent ? (
-                  <Play className="h-4 w-4 text-accent" aria-hidden="true" />
-                ) : (
-                  <span className="text-xs tabular-nums group-hover:hidden">{index + 1}</span>
-                )}
-                {!isCurrent && (
-                  <Play className="hidden h-4 w-4 group-hover:block" aria-hidden="true" />
-                )}
-              </button>
+              {showNumberColumn && (
+                <button
+                  onClick={() => onPlay(index)}
+                  className="flex w-8 items-center justify-center text-text-muted hover:text-text"
+                  aria-label={isCurrent && isPlaying ? `Pause ${track.title}` : `Play ${track.title}`}
+                >
+                  {isCurrent && isPlaying ? (
+                    <Pause className="h-4 w-4 text-accent" aria-hidden="true" />
+                  ) : isCurrent ? (
+                    <Play className="h-4 w-4 text-accent" aria-hidden="true" />
+                  ) : (
+                    <span className="text-xs tabular-nums group-hover:hidden">
+                      {track.trackNo ?? ''}
+                    </span>
+                  )}
+                  {!isCurrent && (
+                    <Play className="hidden h-4 w-4 group-hover:block" aria-hidden="true" />
+                  )}
+                </button>
+              )}
 
               <button
                 onClick={() => onPlay(index)}
@@ -203,17 +200,14 @@ export function SongList({
                 >
                   <ListPlus className="h-4 w-4" aria-hidden="true" />
                 </button>
-                <AddToPlaylistMenu trackIds={[track.id]} />
-                {onRemove && (
-                  <button
-                    onClick={() => onRemove(track)}
-                    aria-label={`${removeLabel} ${track.title}`}
-                    title={removeLabel}
-                    className="rounded-full p-2 text-text-muted hover:bg-danger/10 hover:text-danger"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden="true" />
-                  </button>
-                )}
+                <button
+                  onClick={() => onPlayNext([track.id])}
+                  aria-label={`Play ${track.title} next`}
+                  title="Play next"
+                  className="rounded-full p-2 text-text-muted hover:bg-surface-hover hover:text-text"
+                >
+                  <ListEnd className="h-4 w-4" aria-hidden="true" />
+                </button>
               </span>
             </li>
           );

@@ -45,7 +45,7 @@ interface PlayerContextValue {
   playNext: (trackIds: string[]) => void;
   removeFromQueue: (index: number) => void;
   reorderQueue: (fromIndex: number, toIndex: number) => void;
-  /** Drops every queued track except the one currently playing. */
+  /** Empties the queue entirely and stops playback, including the current track. */
   clearQueue: () => void;
   /** Purges every occurrence of `trackId` from the queue, e.g. after it's deleted from the library. */
   removeTrackFromQueue: (trackId: string) => void;
@@ -363,9 +363,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const togglePlay = useCallback(() => {
-    if (isPlaying) pause();
-    else resume();
-  }, [isPlaying, pause, resume]);
+    if (isPlaying) {
+      pause();
+      return;
+    }
+    // Queue has tracks (e.g. from "Add to queue") but nothing has been
+    // started yet — jump to the first track instead of trying to resume
+    // an <audio> element that was never given a src.
+    if (currentIndex < 0 && queue.length > 0) {
+      setCurrentIndex(0);
+      setIsPlaying(true);
+      return;
+    }
+    resume();
+  }, [isPlaying, pause, resume, currentIndex, queue]);
 
   const seek = useCallback((seconds: number) => {
     const audio = audioRef.current;
@@ -440,13 +451,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearQueue = useCallback(() => {
-    setQueue((q) => {
-      const current = q[currentIndex];
-      return current ? [current] : [];
-    });
-    setCurrentIndex((idx) => (idx >= 0 ? 0 : idx));
+    setQueue([]);
+    setCurrentIndex(-1);
     historyRef.current = [];
-  }, [currentIndex]);
+  }, []);
 
   const removeTrackFromQueue = useCallback(
     (trackId: string) => {

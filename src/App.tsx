@@ -3,7 +3,6 @@ import { TopBar } from '@/components/TopBar';
 import { PlayerBar } from '@/components/PlayerBar';
 import { QueueDrawer } from '@/components/QueueDrawer';
 import { Toasts } from '@/components/Toasts';
-import { usePlayer } from '@/hooks/usePlayer';
 import UploadPage from '@/pages/Upload';
 import SongsPage from '@/pages/Songs';
 import PlaylistsPage from '@/pages/Playlists';
@@ -11,8 +10,6 @@ import PlaylistDetailPage from '@/pages/PlaylistDetail';
 import NowPlayingPage from '@/pages/NowPlaying';
 
 export default function App() {
-  const { queueDrawerOpen } = usePlayer();
-
   return (
     <div className="min-h-screen bg-bg text-text">
       <a
@@ -24,10 +21,7 @@ export default function App() {
 
       <TopBar />
 
-      {/* On large screens the queue is a side panel, so push content over instead of
-          letting it sit underneath (which would silently block clicks there). On
-          small screens the drawer is a full-width sheet, so no reflow is needed. */}
-      <main id="main-content" className={queueDrawerOpen ? 'lg:pr-96' : ''}>
+      <main id="main-content">
         <Routes>
           <Route path="/" element={<Navigate to="/songs" replace />} />
           <Route path="/songs" element={<SongsPage />} />
