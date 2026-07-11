@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import {
-  ListMusic,
+  ListVideo,
   Music2,
   Pause,
   Play,
@@ -289,7 +289,7 @@ export function PlayerBar() {
             title="Queue"
             className={`rounded-full p-2 hover:bg-surface-hover ${queueDrawerOpen ? 'text-accent' : 'text-text-muted'}`}
           >
-            <ListMusic className="h-5 w-5" aria-hidden="true" />
+            <ListVideo className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
       </div>
