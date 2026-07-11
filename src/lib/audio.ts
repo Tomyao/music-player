@@ -17,6 +17,26 @@ export function formatDuration(totalSeconds: number): string {
   return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
+/** Must match the `::-webkit-slider-thumb` / `::-moz-range-thumb` width in tailwind.css. */
+const SEEK_THUMB_PX = 12;
+
+/**
+ * CSS position for a seek bar's fill/thumb boundary, given progress as a
+ * 0–100 percentage. A plain `${progressPct}%` split in the track's
+ * background only lines up with the actual thumb at the 50% mark — the
+ * browser insets the thumb by half its own width so it never overflows the
+ * track, but a raw percentage doesn't account for that inset, so the fill
+ * edge and thumb visibly drift apart approaching either end. This applies
+ * the same fixed-pixel correction the browser uses for the thumb itself
+ * (independent of the track's actual rendered width, so no measurement is
+ * needed) so the color transition always lines up with the thumb.
+ */
+export function seekFillPosition(progressPct: number): string {
+  const fraction = progressPct / 100;
+  const offsetPx = SEEK_THUMB_PX * (0.5 - fraction);
+  return `calc(${progressPct}% + ${offsetPx}px)`;
+}
+
 /**
  * Reference-counted object-URL cache keyed by blob id, so multiple components
  * (PlayerBar, NowPlaying, a list thumbnail) can share one URL per blob instead

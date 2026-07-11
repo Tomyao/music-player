@@ -178,7 +178,7 @@ export function QueueDrawer() {
       </div>
 
       {upcoming > 0 && (
-        <div className="border-t border-border px-4 py-2 text-center text-xs text-text-muted">
+        <div className="border-t border-border px-4 py-2 text-center text-xs text-text-muted sm:pb-4">
           {upcoming} track{upcoming === 1 ? '' : 's'} up next
         </div>
       )}

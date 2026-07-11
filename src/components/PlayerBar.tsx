@@ -16,7 +16,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePlayer } from '@/hooks/usePlayer';
 import { Artwork } from '@/components/Artwork';
 import { Marquee } from '@/components/Marquee';
-import { formatDuration } from '@/lib/audio';
+import { formatDuration, seekFillPosition } from '@/lib/audio';
 
 function VolumeIcon({ volume }: { volume: number }) {
   if (volume === 0) return <VolumeX className="h-5 w-5" aria-hidden="true" />;
@@ -195,11 +195,14 @@ export function PlayerBar() {
               type="range"
               min={0}
               max={duration || 0}
+              step="any"
               value={currentTime}
               onChange={(e) => seek(Number(e.target.value))}
               aria-label="Seek"
               disabled={disabled}
-              style={{ background: `linear-gradient(to right, rgb(var(--color-accent)) ${progressPct}%, rgb(var(--color-border)) ${progressPct}%)` }}
+              style={{
+                background: `linear-gradient(to right, rgb(var(--color-accent)) ${seekFillPosition(progressPct)}, rgb(var(--color-border)) ${seekFillPosition(progressPct)})`,
+              }}
               className="h-1 flex-1 appearance-none rounded-full accent-accent disabled:opacity-40"
             />
             <span className="w-9 text-[11px] tabular-nums text-text-muted">
