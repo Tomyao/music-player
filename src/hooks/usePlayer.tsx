@@ -113,6 +113,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const rafRef = useRef<number>();
   const restoredPositionRef = useRef<number | null>(null);
   const settingsLoadedRef = useRef(false);
+  // `audio.currentTime` can transiently still report the *previous*
+  // resource's position for a moment after `audio.src` is reassigned, until
+  // the browser actually finishes loading the new one — reading it during
+  // that window paired it with the new track's duration and briefly clamped
+  // the seek bar to the end. Only trust reads once 'loadedmetadata' has
+  // fired for the current resource.
+  const audioReadyRef = useRef(false);
 
   // ---- restore last session on mount ----
   useEffect(() => {
@@ -146,6 +153,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (!audio) return;
     const trackId = currentTrackId;
 
+    audioReadyRef.current = false;
+
     if (!trackId) {
       audio.pause();
       audio.removeAttribute('src');
@@ -159,6 +168,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     setIsLoading(true);
     setError(null);
+    // Reset immediately, not just when the new track's metadata arrives —
+    // otherwise the seek bar briefly pairs the previous track's leftover
+    // currentTime with the new (often shorter) track's duration, which can
+    // clamp the thumb to the far end for a frame before it corrects to 0.
+    setCurrentTime(0);
 
     (async () => {
       const track = await db.tracks.get(trackId);
@@ -186,6 +200,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       const resumeAt = restoredPositionRef.current;
       restoredPositionRef.current = null;
       if (resumeAt && resumeAt > 0) audio.currentTime = resumeAt;
+      else audio.currentTime = 0;
 
       setDuration(track.duration);
       setIsLoading(false);
@@ -216,7 +231,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (!audio || !isPlaying) return;
 
     const tick = () => {
-      setCurrentTime(audio.currentTime);
+      if (audioReadyRef.current) setCurrentTime(audio.currentTime);
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
@@ -268,9 +283,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
               [reshuffled[0], reshuffled[swapWith]] = [reshuffled[swapWith], reshuffled[0]];
             }
           }
-        } else {
+        } else if (fromEnded) {
+          // The track finished naturally and there's nowhere to go with no
+          // repeat — let it actually stop. currentTrackId won't change here,
+          // so the "load track" effect won't rerun to pause <audio> for us.
+          audioRef.current?.pause();
           setIsPlaying(false);
-          return; // reached the end with no repeat; stay on the last track
+          return;
+        } else {
+          // Manual "next" click on the last track with no repeat: nothing
+          // to advance to, so leave playback exactly as it was rather than
+          // pausing (or "unpausing") whatever's currently happening.
+          return;
         }
       }
 
@@ -298,7 +322,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
     const onEnded = () => advance(true);
-    const onLoadedMeta = () => setDuration(audio.duration || 0);
+    const onLoadedMeta = () => {
+      audioReadyRef.current = true;
+      setDuration(audio.duration || 0);
+    };
     const onError = () => {
       setError('Playback failed — the file may be corrupted.');
       setIsLoading(false);
@@ -403,6 +430,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       historyRef.current = [];
       preShuffleTailRef.current = null;
 
+      let finalQueue: string[];
+      let finalIndex: number;
+
       if (shuffle && startIndex === undefined) {
         // "Play all" / "play this playlist": no specific track was
         // requested, so shuffle the whole list — including which track
@@ -410,27 +440,45 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         // order. The original order is remembered so turning shuffle off
         // can restore it.
         preShuffleTailRef.current = trackIds;
-        setQueue(shuffleArray(trackIds));
-        setCurrentIndex(0);
-        setIsPlaying(true);
-        return;
+        finalQueue = shuffleArray(trackIds);
+        finalIndex = 0;
+      } else {
+        const resolvedStart = startIndex ?? 0;
+        if (shuffle) {
+          // A specific track was requested (e.g. jumping to one in the Up
+          // Next list) — keep it in place and only shuffle what follows.
+          const played = trackIds.slice(0, resolvedStart + 1);
+          const tail = trackIds.slice(resolvedStart + 1);
+          preShuffleTailRef.current = tail;
+          finalQueue = [...played, ...shuffleArray(tail)];
+        } else {
+          finalQueue = trackIds;
+        }
+        finalIndex = resolvedStart;
       }
 
-      const resolvedStart = startIndex ?? 0;
-      if (shuffle) {
-        // A specific track was requested (e.g. jumping to one in the Up
-        // Next list) — keep it in place and only shuffle what follows.
-        const played = trackIds.slice(0, resolvedStart + 1);
-        const tail = trackIds.slice(resolvedStart + 1);
-        preShuffleTailRef.current = tail;
-        setQueue([...played, ...shuffleArray(tail)]);
-      } else {
-        setQueue(trackIds);
-      }
-      setCurrentIndex(resolvedStart);
+      setQueue(finalQueue);
+      setCurrentIndex(finalIndex);
       setIsPlaying(true);
+
+      // The "load track" effect only calls audio.play() when the current
+      // track id actually changes (it's keyed on that id). If the track
+      // we're starting on is already the one loaded — e.g. it was paused
+      // and this "Play all" happens to land back on it — that effect won't
+      // rerun, so nothing would ever tell <audio> to actually play, leaving
+      // isPlaying stuck at true with the element still paused. Kick it off
+      // directly here, restarting from the top like a fresh play should.
+      const startingTrackId = finalQueue[finalIndex];
+      if (startingTrackId && startingTrackId === currentTrack?.id) {
+        const audio = audioRef.current;
+        if (audio) {
+          audio.currentTime = 0;
+          setCurrentTime(0);
+          audio.play().catch(() => setIsPlaying(false));
+        }
+      }
     },
-    [shuffle],
+    [shuffle, currentTrack],
   );
 
   const resume = useCallback(() => {
@@ -469,16 +517,38 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const prev = useCallback(() => {
     const audio = audioRef.current;
     if (audio && audio.currentTime > 3) {
+      // Also covers a track that just ended naturally (repeat off): it sits
+      // paused with currentTime at/near its duration, so "prev" here should
+      // restart and actually play it, not just silently rewind a paused
+      // element back to 0.
       audio.currentTime = 0;
+      setCurrentTime(0);
+      audio.play().catch(() => setIsPlaying(false));
+      setIsPlaying(true);
       return;
     }
+
     const prevIndex = historyRef.current.pop();
-    setCurrentIndex((idx) => {
-      if (prevIndex != null) return prevIndex;
-      return Math.max(0, idx - 1);
-    });
+    const targetIndex = prevIndex ?? Math.max(0, currentIndex - 1);
+
+    if (targetIndex === currentIndex) {
+      // No history and already at the first track — restart it instead of
+      // doing nothing. currentTrackId won't change here, so the "load
+      // track" effect won't rerun to call audio.play() for us; without
+      // this, isPlaying(true) would show a Pause icon over audio that
+      // never actually started.
+      if (audio) {
+        audio.currentTime = 0;
+        setCurrentTime(0);
+        audio.play().catch(() => setIsPlaying(false));
+      }
+      setIsPlaying(true);
+      return;
+    }
+
+    setCurrentIndex(targetIndex);
     setIsPlaying(true);
-  }, []);
+  }, [currentIndex]);
 
   const setVolume = useCallback((v: number) => {
     const clamped = Math.min(1, Math.max(0, v));
