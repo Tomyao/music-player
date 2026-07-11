@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Download, HardDriveDownload, Loader2, Upload } from 'lucide-react';
-import { exportLibrary, downloadJson, importLibrary } from '@/lib/backup';
+import { exportPlaylists, downloadJson, importPlaylists } from '@/lib/backup';
 import { useToast } from '@/hooks/useToast';
-import type { LibraryExport } from '@/types';
+import type { PlaylistExport } from '@/types';
 
-/** Header control for exporting/importing the whole library as a JSON backup file. */
+/** Header control for exporting/importing playlists as a JSON backup file. */
 export function BackupMenu() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -21,13 +21,12 @@ export function BackupMenu() {
     return () => document.removeEventListener('mousedown', onClick);
   }, [open]);
 
-  const handleExport = async (includeBlobs: boolean) => {
+  const handleExport = async () => {
     setBusy(true);
     try {
-      const data = await exportLibrary(includeBlobs);
-      const suffix = includeBlobs ? 'with-audio' : 'metadata';
-      downloadJson(data, `musique-backup-${suffix}-${new Date().toISOString().slice(0, 10)}.json`);
-      showToast('Backup downloaded', 'success');
+      const data = await exportPlaylists();
+      downloadJson(data, `musique-playlists-${new Date().toISOString().slice(0, 10)}.json`);
+      showToast('Playlists backup downloaded', 'success');
     } catch (err) {
       console.error('[backup] export failed', err);
       showToast('Export failed', 'error');
@@ -41,11 +40,13 @@ export function BackupMenu() {
     setBusy(true);
     try {
       const text = await file.text();
-      const data = JSON.parse(text) as LibraryExport;
-      const result = await importLibrary(data);
+      const data = JSON.parse(text) as PlaylistExport;
+      const result = await importPlaylists(data);
       showToast(
-        `Imported ${result.tracksAdded} song${result.tracksAdded === 1 ? '' : 's'}` +
-          (result.tracksSkipped ? `, skipped ${result.tracksSkipped} duplicate${result.tracksSkipped === 1 ? '' : 's'}` : ''),
+        `Imported ${result.playlistsAdded} playlist${result.playlistsAdded === 1 ? '' : 's'}` +
+          (result.playlistsSkipped
+            ? `, skipped ${result.playlistsSkipped} existing`
+            : ''),
         'success',
       );
     } catch (err) {
@@ -63,8 +64,8 @@ export function BackupMenu() {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label="Backup and restore"
-        title="Backup and restore"
+        aria-label="Backup and restore playlists"
+        title="Backup and restore playlists"
         className="rounded-full p-2 text-text-muted hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
       >
         {busy ? (
@@ -85,20 +86,11 @@ export function BackupMenu() {
           <button
             role="menuitem"
             disabled={busy}
-            onClick={() => handleExport(false)}
+            onClick={handleExport}
             className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-surface-hover disabled:opacity-50"
           >
             <Download className="h-4 w-4" aria-hidden="true" />
-            Export metadata (.json)
-          </button>
-          <button
-            role="menuitem"
-            disabled={busy}
-            onClick={() => handleExport(true)}
-            className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-surface-hover disabled:opacity-50"
-          >
-            <Download className="h-4 w-4" aria-hidden="true" />
-            Export with audio (.json)
+            Export playlists (.json)
           </button>
           <div className="my-1 border-t border-border" />
           <button
@@ -108,7 +100,7 @@ export function BackupMenu() {
             className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-surface-hover disabled:opacity-50"
           >
             <Upload className="h-4 w-4" aria-hidden="true" />
-            Import backup file…
+            Import playlists file…
           </button>
           <input
             ref={fileInputRef}

@@ -26,20 +26,6 @@
   --color-danger: 248 113 113;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not(.light) {
-    --color-bg: 18 18 18;
-    --color-surface: 28 28 30;
-    --color-surface-hover: 40 40 43;
-    --color-border: 51 51 55;
-    --color-text: 245 245 247;
-    --color-text-muted: 161 161 170;
-    --color-accent: 34 197 94;
-    --color-accent-hover: 74 222 128;
-    --color-danger: 248 113 113;
-  }
-}
-
 * {
   border-color: rgb(var(--color-border));
 }

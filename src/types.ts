@@ -31,10 +31,19 @@ export interface BlobDoc {
   mimeType: string;
 }
 
+/** Minimal display info for a track a playlist references that isn't in the local library. */
+export interface TrackStub {
+  title: string;
+  artist: string;
+  album: string;
+}
+
 export interface Playlist {
   id: string;
   name: string;
   trackIds: string[];
+  /** Display info for entries in `trackIds` not present locally (e.g. after importing a playlist backup). */
+  trackMeta?: Record<string, TrackStub>;
   createdAt: number;
   updatedAt: number;
 }
@@ -44,7 +53,7 @@ export type RepeatMode = 'off' | 'all' | 'one';
 /** Singleton settings/session doc, keyed by a fixed id. */
 export interface AppSettings {
   id: 'settings';
-  theme: 'light' | 'dark' | 'system';
+  theme: 'light' | 'dark';
   repeat: RepeatMode;
   shuffle: boolean;
   volume: number;
@@ -56,7 +65,7 @@ export interface AppSettings {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   id: 'settings',
-  theme: 'system',
+  theme: 'light',
   repeat: 'off',
   shuffle: false,
   volume: 1,
@@ -66,14 +75,13 @@ export const DEFAULT_SETTINGS: AppSettings = {
   queueDrawerOpen: false,
 };
 
-/** Shape written by Export and read by Import; audio/artwork blobs are optional. */
-export interface LibraryExport {
+/** Shape written by Export and read by Import. */
+export interface PlaylistExport {
   version: 1;
   exportedAt: number;
-  tracks: Track[];
   playlists: Playlist[];
-  /** Present only when the user chose "include audio" on export. */
-  blobs?: Array<{ id: string; type: BlobKind; mimeType: string; base64: string }>;
+  /** Display info (title/artist/album) for every track referenced by `playlists`, keyed by track id. */
+  trackMeta: Record<string, TrackStub>;
 }
 
 export type SortKey = 'title' | 'artist' | 'album' | 'duration' | 'createdAt';

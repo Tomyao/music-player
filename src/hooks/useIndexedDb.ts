@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/indexedDb';
-import type { Playlist, Track } from '@/types';
+import type { Playlist, Track, TrackStub } from '@/types';
 
 /** Sentinel distinguishing "still loading" from "query resolved to undefined" (e.g. not found). */
 export const LOADING = Symbol('loading');
@@ -23,13 +23,32 @@ export function usePlaylist(id: string | undefined): Playlist | undefined | Load
   return useLiveQuery(() => (id ? db.playlists.get(id) : undefined), [id], LOADING);
 }
 
-/** Resolves a playlist's `trackIds` into full Track docs, preserving order and dropping any that were deleted. */
-export function usePlaylistTracks(playlist: Playlist | undefined): Track[] | undefined {
+export type PlaylistEntry =
+  | { status: 'available'; id: string; track: Track }
+  | { status: 'missing'; id: string; stub: TrackStub };
+
+/**
+ * Resolves a playlist's `trackIds` into full entries, preserving order. Ids
+ * that aren't in the local library fall back to the cached `trackMeta` stub
+ * (e.g. from an imported backup) so they can still be shown; ids with
+ * neither a track nor a stub are dropped.
+ */
+export function usePlaylistEntries(playlist: Playlist | undefined): PlaylistEntry[] | undefined {
   return useLiveQuery(async () => {
     if (!playlist) return undefined;
     const tracks = await db.tracks.bulkGet(playlist.trackIds);
-    return tracks.filter((t): t is Track => Boolean(t));
-  }, [playlist?.trackIds.join(',')]);
+    const entries: PlaylistEntry[] = [];
+    playlist.trackIds.forEach((id, i) => {
+      const track = tracks[i];
+      if (track) {
+        entries.push({ status: 'available', id, track });
+        return;
+      }
+      const stub = playlist.trackMeta?.[id];
+      if (stub) entries.push({ status: 'missing', id, stub });
+    });
+    return entries;
+  }, [playlist?.trackIds.join(','), playlist?.trackMeta]);
 }
 
 export function useTrack(id: string | undefined): Track | undefined {

@@ -16,15 +16,15 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowLeft, GripVertical, ListMusic, Pause, Play, Plus, Trash2, X } from 'lucide-react';
-import { LOADING, usePlaylist, usePlaylistTracks, useTracks } from '@/hooks/useIndexedDb';
+import { ArrowLeft, GripVertical, ListMusic, Loader2, Music2, Pause, Play, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { LOADING, usePlaylist, usePlaylistEntries, useTracks, type PlaylistEntry } from '@/hooks/useIndexedDb';
 import { usePlayer } from '@/hooks/usePlayer';
 import { useToast } from '@/hooks/useToast';
-import { db } from '@/db/indexedDb';
+import { db, rescanPlaylist } from '@/db/indexedDb';
 import { Artwork } from '@/components/Artwork';
 import { SearchBar } from '@/components/SearchBar';
 import { formatDuration } from '@/lib/audio';
-import type { Track } from '@/types';
+import type { Track, TrackStub } from '@/types';
 
 function TrackRow({
   track,
@@ -87,12 +87,64 @@ function TrackRow({
   );
 }
 
+/** Row for a playlist entry whose track isn't in the local library (e.g. after importing a backup). */
+function MissingTrackRow({
+  id,
+  stub,
+  onRemove,
+}: {
+  id: string;
+  stub: TrackStub;
+  onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`group flex items-center gap-2 rounded-lg px-2 py-2 opacity-60 ${
+        isDragging ? 'z-10 bg-surface-hover shadow-lg' : 'hover:bg-surface-hover'
+      }`}
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        aria-label={`Reorder ${stub.title}`}
+        className="cursor-grab touch-none rounded p-1 text-text-muted active:cursor-grabbing"
+      >
+        <GripVertical className="h-4 w-4" aria-hidden="true" />
+      </button>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-surface-hover text-text-muted">
+          <Music2 className="h-4 w-4" aria-hidden="true" />
+        </div>
+        <span className="min-w-0">
+          <span className="block truncate text-sm font-medium text-text">{stub.title}</span>
+          <span className="block truncate text-xs text-text-muted">
+            {stub.artist}
+            {stub.album ? ` — ${stub.album}` : ''}
+          </span>
+        </span>
+      </div>
+      <span className="hidden shrink-0 text-xs italic text-text-muted sm:block">Not in library</span>
+      <button
+        onClick={onRemove}
+        aria-label={`Remove ${stub.title} from playlist`}
+        className="rounded-full p-2 text-text-muted opacity-0 hover:bg-danger/10 hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
+      >
+        <Trash2 className="h-4 w-4" aria-hidden="true" />
+      </button>
+    </li>
+  );
+}
+
 export default function PlaylistDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const playlist = usePlaylist(id);
   const resolvedPlaylist = playlist === LOADING ? undefined : playlist;
-  const tracks = usePlaylistTracks(resolvedPlaylist);
+  const entries = usePlaylistEntries(resolvedPlaylist);
   const allTracks = useTracks();
   const { playNow, currentTrack, isPlaying } = usePlayer();
   const { showToast } = useToast();
@@ -100,6 +152,7 @@ export default function PlaylistDetailPage() {
   const [query, setQuery] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerQuery, setPickerQuery] = useState('');
+  const [rescanning, setRescanning] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -107,13 +160,21 @@ export default function PlaylistDetailPage() {
   );
 
   const filtered = useMemo(() => {
-    if (!tracks) return [];
+    if (!entries) return [];
     const q = query.trim().toLowerCase();
-    if (!q) return tracks;
-    return tracks.filter(
-      (t) => t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q),
-    );
-  }, [tracks, query]);
+    if (!q) return entries;
+    return entries.filter((e) => {
+      const { title, artist } = e.status === 'available' ? e.track : e.stub;
+      return title.toLowerCase().includes(q) || artist.toLowerCase().includes(q);
+    });
+  }, [entries, query]);
+
+  const playableIds = useMemo(
+    () => (entries ?? []).filter((e): e is Extract<PlaylistEntry, { status: 'available' }> => e.status === 'available').map((e) => e.track.id),
+    [entries],
+  );
+
+  const hasMissing = (entries ?? []).some((e) => e.status === 'missing');
 
   const availableToAdd = useMemo(() => {
     if (!allTracks || !resolvedPlaylist) return [];
@@ -126,7 +187,7 @@ export default function PlaylistDetailPage() {
     });
   }, [allTracks, resolvedPlaylist, pickerQuery]);
 
-  if (playlist === LOADING || tracks === undefined) {
+  if (playlist === LOADING || entries === undefined) {
     return <div className="px-4 py-8 text-center text-text-muted">Loading…</div>;
   }
   if (!playlist) {
@@ -154,8 +215,10 @@ export default function PlaylistDetailPage() {
 
   const removeTrack = (trackId: string) => {
     if (!playlist) return;
+    const { [trackId]: _removed, ...trackMeta } = playlist.trackMeta ?? {};
     db.playlists.update(playlist.id, {
       trackIds: playlist.trackIds.filter((id_) => id_ !== trackId),
+      trackMeta,
       updatedAt: Date.now(),
     });
   };
@@ -167,6 +230,22 @@ export default function PlaylistDetailPage() {
       updatedAt: Date.now(),
     });
     showToast(`Added ${ids.length} song${ids.length === 1 ? '' : 's'}`, 'success');
+  };
+
+  const handleRescan = async () => {
+    if (!playlist) return;
+    setRescanning(true);
+    try {
+      const { relinked } = await rescanPlaylist(playlist.id);
+      showToast(
+        relinked > 0
+          ? `Relinked ${relinked} song${relinked === 1 ? '' : 's'}`
+          : 'No matching songs found in your library',
+        relinked > 0 ? 'success' : 'default',
+      );
+    } finally {
+      setRescanning(false);
+    }
   };
 
   return (
@@ -188,9 +267,9 @@ export default function PlaylistDetailPage() {
             {playlist.trackIds.length} {playlist.trackIds.length === 1 ? 'song' : 'songs'}
           </p>
         </div>
-        {tracks.length > 0 && (
+        {playableIds.length > 0 && (
           <button
-            onClick={() => playNow(playlist.trackIds)}
+            onClick={() => playNow(playableIds)}
             className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-sm font-medium text-bg hover:bg-accent-hover"
           >
             <Play className="h-4 w-4" aria-hidden="true" /> Play
@@ -202,49 +281,72 @@ export default function PlaylistDetailPage() {
         >
           <Plus className="h-4 w-4" aria-hidden="true" /> Add songs
         </button>
+        {hasMissing && (
+          <button
+            onClick={handleRescan}
+            disabled={rescanning}
+            title="Re-check missing songs against your library"
+            className="flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-surface-hover disabled:opacity-50"
+          >
+            {rescanning ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            ) : (
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
+            )}
+            Rescan
+          </button>
+        )}
       </div>
 
-      {tracks.length > 0 && (
+      {entries.length > 0 && (
         <div className="mb-3">
           <SearchBar value={query} onChange={setQuery} label="Search in playlist" placeholder="Search this playlist…" />
         </div>
       )}
 
-      {tracks.length === 0 ? (
+      {entries.length === 0 ? (
         <div className="flex flex-col items-center gap-3 px-4 py-24 text-center">
           <ListMusic className="h-10 w-10 text-text-muted" aria-hidden="true" />
           <p className="text-text-muted">No songs yet. Add some from your library.</p>
         </div>
       ) : query ? (
         <ul className="space-y-0.5">
-          {filtered.map((track) => (
-            <TrackRow
-              key={track.id}
-              track={track}
-              isCurrent={track.id === currentTrack?.id}
-              isPlaying={isPlaying}
-              onPlay={() => playNow([track.id])}
-              onRemove={() => removeTrack(track.id)}
-            />
-          ))}
+          {filtered.map((entry) =>
+            entry.status === 'available' ? (
+              <TrackRow
+                key={entry.id}
+                track={entry.track}
+                isCurrent={entry.track.id === currentTrack?.id}
+                isPlaying={isPlaying}
+                onPlay={() => playNow([entry.track.id])}
+                onRemove={() => removeTrack(entry.id)}
+              />
+            ) : (
+              <MissingTrackRow key={entry.id} id={entry.id} stub={entry.stub} onRemove={() => removeTrack(entry.id)} />
+            ),
+          )}
           {filtered.length === 0 && (
             <p className="py-8 text-center text-sm text-text-muted">No matches in this playlist.</p>
           )}
         </ul>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-          <SortableContext items={tracks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+          <SortableContext items={entries.map((e) => e.id)} strategy={verticalListSortingStrategy}>
             <ul className="space-y-0.5">
-              {tracks.map((track) => (
-                <TrackRow
-                  key={track.id}
-                  track={track}
-                  isCurrent={track.id === currentTrack?.id}
-                  isPlaying={isPlaying}
-                  onPlay={() => playNow([track.id])}
-                  onRemove={() => removeTrack(track.id)}
-                />
-              ))}
+              {entries.map((entry) =>
+                entry.status === 'available' ? (
+                  <TrackRow
+                    key={entry.id}
+                    track={entry.track}
+                    isCurrent={entry.track.id === currentTrack?.id}
+                    isPlaying={isPlaying}
+                    onPlay={() => playNow([entry.track.id])}
+                    onRemove={() => removeTrack(entry.id)}
+                  />
+                ) : (
+                  <MissingTrackRow key={entry.id} id={entry.id} stub={entry.stub} onRemove={() => removeTrack(entry.id)} />
+                ),
+              )}
             </ul>
           </SortableContext>
         </DndContext>

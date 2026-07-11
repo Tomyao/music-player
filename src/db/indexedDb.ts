@@ -46,7 +46,12 @@ export async function updateSettings(patch: Partial<AppSettings>): Promise<void>
   await db.app.put({ ...current, ...patch, id: 'settings' });
 }
 
-/** Deletes a track, its audio/artwork blobs, and removes it from every playlist. */
+/**
+ * Deletes a track and its audio/artwork blobs. Playlists keep the track's
+ * `id` in `trackIds` (rather than dropping the reference) but cache its
+ * title/artist/album in `trackMeta` so it still shows up, unplayable, until
+ * a matching track is re-uploaded.
+ */
 export async function deleteTrackCascade(trackId: string): Promise<void> {
   await db.transaction('rw', db.tracks, db.blobs, db.playlists, async () => {
     const track = await db.tracks.get(trackId);
@@ -64,11 +69,61 @@ export async function deleteTrackCascade(trackId: string): Promise<void> {
         .filter((p) => p.trackIds.includes(trackId))
         .map((p) =>
           db.playlists.update(p.id, {
-            trackIds: p.trackIds.filter((id) => id !== trackId),
+            trackMeta: {
+              ...p.trackMeta,
+              [trackId]: { title: track.title, artist: track.artist, album: track.album },
+            },
             updatedAt: Date.now(),
           }),
         ),
     );
+  });
+}
+
+export interface RescanResult {
+  relinked: number;
+}
+
+/**
+ * Re-resolves a playlist's missing track references against the current
+ * library. Entries cached in `trackMeta` (dropped tracks or ones that
+ * weren't present at import time) are matched against local tracks by
+ * title/artist/album (not audio content, so the same song re-added in a
+ * different file format or rip still matches) and swapped in place so the
+ * playlist points at the real track again.
+ */
+export async function rescanPlaylist(playlistId: string): Promise<RescanResult> {
+  return db.transaction('rw', db.tracks, db.playlists, async () => {
+    const playlist = await db.playlists.get(playlistId);
+    const missingEntries = Object.entries(playlist?.trackMeta ?? {});
+    if (!playlist || missingEntries.length === 0) return { relinked: 0 };
+
+    const nameKey = (title: string, artist: string, album: string) =>
+      `${title} ${artist} ${album}`.trim().toLowerCase();
+
+    const allTracks = await db.tracks.toArray();
+    const byName = new Map(allTracks.map((t) => [nameKey(t.title, t.artist, t.album), t]));
+
+    const trackIds = [...playlist.trackIds];
+    const trackMeta = { ...playlist.trackMeta };
+    let relinked = 0;
+
+    for (const [id, stub] of missingEntries) {
+      const match = byName.get(nameKey(stub.title, stub.artist, stub.album));
+      if (!match) continue;
+
+      const idx = trackIds.indexOf(id);
+      if (idx === -1) continue;
+      trackIds[idx] = match.id;
+      delete trackMeta[id];
+      relinked += 1;
+    }
+
+    if (relinked > 0) {
+      await db.playlists.update(playlistId, { trackIds, trackMeta, updatedAt: Date.now() });
+    }
+
+    return { relinked };
   });
 }
 

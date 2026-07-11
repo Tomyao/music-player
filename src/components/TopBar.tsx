@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { ListMusic, Music2, Upload } from 'lucide-react';
 import { BackupMenu } from '@/components/BackupMenu';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -10,6 +10,9 @@ const links = [
 ];
 
 export function TopBar() {
+  const { pathname } = useLocation();
+  const onPlaylistsTab = pathname.startsWith('/playlists');
+
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-bg/90 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4">
@@ -44,7 +47,7 @@ export function TopBar() {
 
         <div className="ml-auto flex items-center gap-1">
           <ThemeToggle />
-          <BackupMenu />
+          {onPlaylistsTab && <BackupMenu />}
         </div>
       </div>
     </header>
