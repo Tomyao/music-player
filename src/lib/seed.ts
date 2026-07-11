@@ -53,15 +53,26 @@ const DEMO_META: Array<Pick<Track, 'title' | 'artist' | 'album' | 'genre' | 'yea
   { title: 'Static Bloom', artist: 'Marigold', album: 'Slow Bloom EP', genre: 'Lo-fi', year: 2022, duration: 4, freq: 196 },
 ];
 
-/** Inserts a handful of playable demo tracks (and one demo playlist) for quick UI testing. Idempotent. */
+/**
+ * Inserts a handful of playable demo tracks (and one demo playlist) for
+ * quick UI testing. Idempotent per-track — checks each demo title
+ * individually rather than a single anchor track, so re-running after only
+ * some demo tracks were deleted tops up just the missing ones instead of
+ * re-adding duplicates of the ones still there.
+ */
 export async function seedDemoLibrary(): Promise<number> {
-  const already = await db.tracks.where('title').equals('Midnight Drive').count();
-  if (already > 0) return 0;
+  const existingByTitle = new Map(
+    (await db.tracks.where('title').anyOf(DEMO_META.map((m) => m.title)).toArray()).map((t) => [
+      t.title,
+      t,
+    ]),
+  );
+  const missing = DEMO_META.filter((meta) => !existingByTitle.has(meta.title));
 
   const now = Date.now();
-  const tracks: Track[] = [];
+  const newTracks: Track[] = [];
 
-  for (const meta of DEMO_META) {
+  for (const meta of missing) {
     const audioId = crypto.randomUUID();
     const blob = generateToneWav(meta.duration, meta.freq);
     await db.blobs.put({ id: audioId, type: 'audio', blob, mimeType: 'audio/wav' });
@@ -82,18 +93,26 @@ export async function seedDemoLibrary(): Promise<number> {
       createdAt: now,
       updatedAt: now,
     };
-    tracks.push(track);
+    newTracks.push(track);
   }
 
-  await db.tracks.bulkAdd(tracks);
+  if (newTracks.length > 0) await db.tracks.bulkAdd(newTracks);
 
-  await db.playlists.add({
-    id: crypto.randomUUID(),
-    name: 'Demo Mix',
-    trackIds: tracks.slice(0, 4).map((t) => t.id),
-    createdAt: now,
-    updatedAt: now,
-  });
+  const demoMixExists = (await db.playlists.where('name').equals('Demo Mix').count()) > 0;
+  if (!demoMixExists) {
+    const newByTitle = new Map(newTracks.map((t) => [t.title, t]));
+    const trackIds = DEMO_META.slice(0, 4)
+      .map((meta) => existingByTitle.get(meta.title)?.id ?? newByTitle.get(meta.title)?.id)
+      .filter((id): id is string => Boolean(id));
 
-  return tracks.length;
+    await db.playlists.add({
+      id: crypto.randomUUID(),
+      name: 'Demo Mix',
+      trackIds,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+
+  return newTracks.length;
 }
