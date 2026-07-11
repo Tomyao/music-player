@@ -4,6 +4,7 @@ import { usePlaylists } from '@/hooks/useIndexedDb';
 import { useToast } from '@/hooks/useToast';
 import { db } from '@/db/indexedDb';
 import { PlaylistCard } from '@/components/PlaylistCard';
+import { BackupMenu } from '@/components/BackupMenu';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import type { Playlist } from '@/types';
 
@@ -43,14 +44,17 @@ export default function PlaylistsPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 pb-32">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-semibold">Playlists</h1>
-        <button
-          onClick={() => setCreating(true)}
-          className="flex items-center gap-1.5 rounded-full bg-accent px-3 py-2 text-sm font-medium text-bg hover:bg-accent-hover"
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" /> New playlist
-        </button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <BackupMenu />
+          <button
+            onClick={() => setCreating(true)}
+            className="flex items-center justify-center gap-1.5 rounded-full bg-accent px-3 py-2 text-sm font-medium text-bg hover:bg-accent-hover sm:w-auto"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" /> New playlist
+          </button>
+        </div>
       </div>
 
       {creating && (

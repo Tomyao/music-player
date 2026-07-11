@@ -2,12 +2,12 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { TopBar } from '@/components/TopBar';
 import { PlayerBar } from '@/components/PlayerBar';
 import { QueueDrawer } from '@/components/QueueDrawer';
+import { NowPlayingOverlay } from '@/components/NowPlayingOverlay';
 import { Toasts } from '@/components/Toasts';
 import UploadPage from '@/pages/Upload';
 import SongsPage from '@/pages/Songs';
 import PlaylistsPage from '@/pages/Playlists';
 import PlaylistDetailPage from '@/pages/PlaylistDetail';
-import NowPlayingPage from '@/pages/NowPlaying';
 
 export default function App() {
   return (
@@ -28,12 +28,12 @@ export default function App() {
           <Route path="/upload" element={<UploadPage />} />
           <Route path="/playlists" element={<PlaylistsPage />} />
           <Route path="/playlists/:id" element={<PlaylistDetailPage />} />
-          <Route path="/now-playing" element={<NowPlayingPage />} />
           <Route path="*" element={<Navigate to="/library" replace />} />
         </Routes>
       </main>
 
       <QueueDrawer />
+      <NowPlayingOverlay />
       <PlayerBar />
       <Toasts />
     </div>

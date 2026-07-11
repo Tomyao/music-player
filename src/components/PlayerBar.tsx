@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import {
   ListVideo,
   Music2,
@@ -16,12 +15,13 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { usePlayer } from '@/hooks/usePlayer';
 import { Artwork } from '@/components/Artwork';
+import { Marquee } from '@/components/Marquee';
 import { formatDuration } from '@/lib/audio';
 
 function VolumeIcon({ volume }: { volume: number }) {
-  if (volume === 0) return <VolumeX className="h-4 w-4" aria-hidden="true" />;
-  if (volume < 0.5) return <Volume1 className="h-4 w-4" aria-hidden="true" />;
-  return <Volume2 className="h-4 w-4" aria-hidden="true" />;
+  if (volume === 0) return <VolumeX className="h-5 w-5" aria-hidden="true" />;
+  if (volume < 0.5) return <Volume1 className="h-5 w-5" aria-hidden="true" />;
+  return <Volume2 className="h-5 w-5" aria-hidden="true" />;
 }
 
 /** Persistent transport bar, always visible; shows a placeholder when nothing is loaded. */
@@ -37,6 +37,7 @@ export function PlayerBar() {
     repeat,
     shuffle,
     queueDrawerOpen,
+    nowPlayingOpen,
     error,
     togglePlay,
     seek,
@@ -46,6 +47,7 @@ export function PlayerBar() {
     setRepeat,
     toggleShuffle,
     toggleQueueDrawer,
+    toggleNowPlaying,
   } = usePlayer();
 
   const lastVolumeRef = useRef(volume || 1);
@@ -96,30 +98,13 @@ export function PlayerBar() {
         </p>
       )}
 
-      <div className="flex items-center gap-2 px-3 pt-1.5 sm:hidden">
-        <span className="w-9 text-right text-[10px] tabular-nums text-text-muted">
-          {formatDuration(currentTime)}
-        </span>
-        <input
-          type="range"
-          min={0}
-          max={duration || 0}
-          value={currentTime}
-          onChange={(e) => seek(Number(e.target.value))}
-          aria-label="Seek"
-          disabled={disabled}
-          className="h-1 flex-1 accent-accent disabled:opacity-40"
-        />
-        <span className="w-9 text-[10px] tabular-nums text-text-muted">
-          {formatDuration(duration)}
-        </span>
-      </div>
-
       <div className="mx-auto flex max-w-6xl items-center gap-4 px-3 py-2 sm:py-3">
         {currentTrack ? (
-          <Link
-            to="/now-playing"
-            className="flex min-w-0 flex-1 items-center gap-3 sm:flex-none sm:w-64"
+          <button
+            onClick={toggleNowPlaying}
+            aria-pressed={nowPlayingOpen}
+            aria-label="Toggle now playing"
+            className="flex min-w-0 flex-1 select-none items-center gap-3 text-left sm:flex-none sm:w-64"
           >
             <Artwork
               artworkBlobId={currentTrack.artworkBlobId}
@@ -128,24 +113,23 @@ export function PlayerBar() {
               className="h-12 w-12 shrink-0"
               rounded="sm"
             />
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-medium">{currentTrack.title}</span>
-              <span className="block truncate text-xs text-text-muted">{currentTrack.artist}</span>
-            </span>
-          </Link>
+            <div className="min-w-0">
+              <Marquee text={currentTrack.title} className="text-sm font-medium" />
+              <Marquee text={currentTrack.artist} className="text-xs text-text-muted" />
+            </div>
+          </button>
         ) : (
           <div className="flex min-w-0 flex-1 items-center gap-3 sm:flex-none sm:w-64">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md bg-surface-hover text-text-muted">
               <Music2 className="h-5 w-5" aria-hidden="true" />
             </div>
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-medium text-text-muted">
-                Nothing playing
-              </span>
-              <span className="block truncate text-xs text-text-muted">
-                {hasQueue ? 'Press play to start queue' : 'Pick a song to get started'}
-              </span>
-            </span>
+            <div className="min-w-0">
+              <Marquee text="Nothing playing" className="text-sm font-medium text-text-muted" />
+              <Marquee
+                text={hasQueue ? 'Press play to start queue' : 'Pick a song to get started'}
+                className="text-xs text-text-muted"
+              />
+            </div>
           </div>
         )}
 
@@ -156,49 +140,49 @@ export function PlayerBar() {
               aria-pressed={shuffle}
               aria-label="Toggle shuffle"
               title="Shuffle"
-              className={`rounded-full p-2 hover:bg-surface-hover ${shuffle ? 'text-accent' : 'text-text-muted'}`}
+              className={`rounded-full p-2.5 hover:bg-surface-hover ${shuffle ? 'text-accent' : 'text-text-muted'}`}
             >
-              <Shuffle className="h-4 w-4" aria-hidden="true" />
+              <Shuffle className="h-5 w-5" aria-hidden="true" />
             </button>
             <button
               onClick={prev}
               disabled={disabled}
               aria-label="Previous track"
-              className="rounded-full p-2 text-text hover:bg-surface-hover disabled:pointer-events-none disabled:opacity-40"
+              className="rounded-full p-2.5 text-text hover:bg-surface-hover disabled:pointer-events-none disabled:opacity-40"
             >
-              <SkipBack className="h-5 w-5" aria-hidden="true" />
+              <SkipBack className="h-6 w-6" aria-hidden="true" />
             </button>
             <button
               onClick={togglePlay}
               disabled={playDisabled}
               aria-label={isPlaying ? 'Pause' : 'Play'}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-text text-bg hover:scale-105 disabled:pointer-events-none disabled:opacity-40"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-text text-bg hover:scale-105 disabled:pointer-events-none disabled:opacity-40"
             >
               {isPlaying ? (
-                <Pause className="h-4 w-4" aria-hidden="true" />
+                <Pause className="h-5 w-5" aria-hidden="true" />
               ) : (
-                <Play className="h-4 w-4 translate-x-0.5" aria-hidden="true" />
+                <Play className="h-5 w-5 translate-x-0.5" aria-hidden="true" />
               )}
             </button>
             <button
               onClick={next}
               disabled={disabled}
               aria-label="Next track"
-              className="rounded-full p-2 text-text hover:bg-surface-hover disabled:pointer-events-none disabled:opacity-40"
+              className="rounded-full p-2.5 text-text hover:bg-surface-hover disabled:pointer-events-none disabled:opacity-40"
             >
-              <SkipForward className="h-5 w-5" aria-hidden="true" />
+              <SkipForward className="h-6 w-6" aria-hidden="true" />
             </button>
             <button
               onClick={cycleRepeat}
               aria-pressed={repeat !== 'off'}
               aria-label={`Repeat: ${repeat}`}
               title={`Repeat: ${repeat}`}
-              className={`rounded-full p-2 hover:bg-surface-hover ${repeat !== 'off' ? 'text-accent' : 'text-text-muted'}`}
+              className={`rounded-full p-2.5 hover:bg-surface-hover ${repeat !== 'off' ? 'text-accent' : 'text-text-muted'}`}
             >
               {repeat === 'one' ? (
-                <Repeat1 className="h-4 w-4" aria-hidden="true" />
+                <Repeat1 className="h-5 w-5" aria-hidden="true" />
               ) : (
-                <Repeat className="h-4 w-4" aria-hidden="true" />
+                <Repeat className="h-5 w-5" aria-hidden="true" />
               )}
             </button>
           </div>
@@ -226,20 +210,24 @@ export function PlayerBar() {
 
         <div className="flex items-center gap-1 sm:w-64 sm:justify-end">
           <button
-            onClick={togglePlay}
-            disabled={playDisabled}
-            aria-label={isPlaying ? 'Pause' : 'Play'}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-text text-bg sm:hidden disabled:pointer-events-none disabled:opacity-40"
+            onClick={toggleShuffle}
+            aria-pressed={shuffle}
+            aria-label="Toggle shuffle"
+            className={`rounded-full p-2.5 hover:bg-surface-hover sm:hidden ${shuffle ? 'text-accent' : 'text-text-muted'}`}
           >
-            {isPlaying ? <Pause className="h-4 w-4" aria-hidden="true" /> : <Play className="h-4 w-4 translate-x-0.5" aria-hidden="true" />}
+            <Shuffle className="h-5 w-5" aria-hidden="true" />
           </button>
           <button
-            onClick={next}
-            disabled={disabled}
-            aria-label="Next track"
-            className="rounded-full p-2 text-text hover:bg-surface-hover sm:hidden disabled:pointer-events-none disabled:opacity-40"
+            onClick={cycleRepeat}
+            aria-pressed={repeat !== 'off'}
+            aria-label={`Repeat: ${repeat}`}
+            className={`rounded-full p-2.5 hover:bg-surface-hover sm:hidden ${repeat !== 'off' ? 'text-accent' : 'text-text-muted'}`}
           >
-            <SkipForward className="h-5 w-5" aria-hidden="true" />
+            {repeat === 'one' ? (
+              <Repeat1 className="h-5 w-5" aria-hidden="true" />
+            ) : (
+              <Repeat className="h-5 w-5" aria-hidden="true" />
+            )}
           </button>
 
           <div className="relative" ref={volumeRef}>
@@ -248,7 +236,7 @@ export function PlayerBar() {
               aria-label="Volume"
               aria-haspopup="true"
               aria-expanded={volumeOpen}
-              className="rounded-full p-2 text-text-muted hover:bg-surface-hover hover:text-text"
+              className="rounded-full p-2.5 text-text-muted hover:bg-surface-hover hover:text-text"
             >
               <VolumeIcon volume={volume} />
             </button>
@@ -287,9 +275,9 @@ export function PlayerBar() {
             aria-controls="queue-drawer"
             aria-label={queueDrawerOpen ? 'Hide queue' : 'Show queue'}
             title="Queue"
-            className={`rounded-full p-2 hover:bg-surface-hover ${queueDrawerOpen ? 'text-accent' : 'text-text-muted'}`}
+            className={`rounded-full p-2.5 hover:bg-surface-hover ${queueDrawerOpen ? 'text-accent' : 'text-text-muted'}`}
           >
-            <ListVideo className="h-5 w-5" aria-hidden="true" />
+            <ListVideo className="h-6 w-6" aria-hidden="true" />
           </button>
         </div>
       </div>

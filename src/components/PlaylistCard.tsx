@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ListMusic, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTracksByIds } from '@/hooks/useIndexedDb';
@@ -12,6 +12,7 @@ interface PlaylistCardProps {
 }
 
 export function PlaylistCard({ playlist, onRename, onDelete }: PlaylistCardProps) {
+  const navigate = useNavigate();
   const previewTracks = useTracksByIds(playlist.trackIds.slice(0, 4));
   const [menuOpen, setMenuOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -27,7 +28,10 @@ export function PlaylistCard({ playlist, onRename, onDelete }: PlaylistCardProps
 
   return (
     <div className="group relative rounded-2xl border border-border bg-surface p-4 transition-colors hover:bg-surface-hover">
-      <Link to={`/playlists/${playlist.id}`} className="block focus-visible:outline-none">
+      <button
+        onClick={() => navigate(`/playlists/${playlist.id}`)}
+        className="block w-full select-none text-left focus-visible:outline-none"
+      >
         <div className="mb-3 grid aspect-square grid-cols-2 gap-0.5 overflow-hidden rounded-xl bg-bg">
           {previewTracks && previewTracks.length > 0 ? (
             previewTracks
@@ -59,7 +63,7 @@ export function PlaylistCard({ playlist, onRename, onDelete }: PlaylistCardProps
         <p className="text-sm text-text-muted">
           {playlist.trackIds.length} {playlist.trackIds.length === 1 ? 'song' : 'songs'}
         </p>
-      </Link>
+      </button>
 
       <div className="absolute right-3 top-3" ref={ref}>
         <button
@@ -67,7 +71,7 @@ export function PlaylistCard({ playlist, onRename, onDelete }: PlaylistCardProps
           aria-label={`More options for ${playlist.name}`}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
-          className="rounded-full bg-bg/80 p-1.5 text-text-muted opacity-0 backdrop-blur transition-opacity hover:text-text focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent group-hover:opacity-100"
+          className="rounded-full bg-bg/80 p-1.5 text-text-muted backdrop-blur transition-opacity hover:text-text focus-visible:opacity-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent sm:opacity-0 sm:group-hover:opacity-100"
         >
           <MoreVertical className="h-4 w-4" aria-hidden="true" />
         </button>

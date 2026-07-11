@@ -51,6 +51,10 @@ interface PlayerContextValue {
   repeat: RepeatMode;
   shuffle: boolean;
   queueDrawerOpen: boolean;
+  /** Whether the "Now Playing" overlay (toggled by tapping the track info in the player bar) is open. */
+  nowPlayingOpen: boolean;
+  /** Whichever of the queue drawer / now playing overlay was opened most recently — renders above the other when both are open. */
+  topOverlay: 'queue' | 'nowPlaying' | null;
   error: string | null;
 
   /** Replaces the queue with `trackIds` and starts playback at `startIndex`. */
@@ -66,6 +70,7 @@ interface PlayerContextValue {
   /** Shuffles the not-yet-played queue in place (visible in the Queue panel); reverts it on toggling off. */
   toggleShuffle: () => void;
   toggleQueueDrawer: () => void;
+  toggleNowPlaying: () => void;
 
   /**
    * Appends to the queue; scattered at random positions among the not-yet-played
@@ -115,6 +120,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [repeat, setRepeatState] = useState<RepeatMode>('off');
   const [shuffle, setShuffle] = useState(false);
   const [queueDrawerOpen, setQueueDrawerOpen] = useState(false);
+  const [nowPlayingOpen, setNowPlayingOpen] = useState(false);
+  const [topOverlay, setTopOverlay] = useState<'queue' | 'nowPlaying' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const historyRef = useRef<number[]>([]);
@@ -628,7 +635,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [shuffle, queue, currentIndex]);
 
-  const toggleQueueDrawer = useCallback(() => setQueueDrawerOpen((o) => !o), []);
+  const toggleQueueDrawer = useCallback(() => {
+    const next = !queueDrawerOpen;
+    setQueueDrawerOpen(next);
+    if (next) setTopOverlay('queue');
+  }, [queueDrawerOpen]);
+  const toggleNowPlaying = useCallback(() => {
+    const next = !nowPlayingOpen;
+    setNowPlayingOpen(next);
+    if (next) setTopOverlay('nowPlaying');
+  }, [nowPlayingOpen]);
 
   const enqueue = useCallback(
     (trackIds: string[]) => {
@@ -801,6 +817,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       repeat,
       shuffle,
       queueDrawerOpen,
+      nowPlayingOpen,
+      topOverlay,
       error,
       playNow,
       togglePlay,
@@ -813,6 +831,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setRepeat,
       toggleShuffle: toggleShuffleFn,
       toggleQueueDrawer,
+      toggleNowPlaying,
       enqueue,
       playNext: playNextFn,
       removeFromQueue,
@@ -832,6 +851,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       repeat,
       shuffle,
       queueDrawerOpen,
+      nowPlayingOpen,
+      topOverlay,
       error,
       playNow,
       togglePlay,
@@ -844,6 +865,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setRepeat,
       toggleShuffleFn,
       toggleQueueDrawer,
+      toggleNowPlaying,
       enqueue,
       playNextFn,
       removeFromQueue,

@@ -16,7 +16,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ArrowLeft, GripVertical, ListMusic, Loader2, Music2, Pause, Play, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { ArrowLeft, GripVertical, ListMusic, Loader2, Music2, Play, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { LOADING, usePlaylist, usePlaylistEntries, useTracks, type PlaylistEntry } from '@/hooks/useIndexedDb';
 import { usePlayer } from '@/hooks/usePlayer';
 import { useToast } from '@/hooks/useToast';
@@ -29,13 +29,11 @@ import type { Track, TrackStub } from '@/types';
 function TrackRow({
   track,
   isCurrent,
-  isPlaying,
   onPlay,
   onRemove,
 }: {
   track: Track;
   isCurrent: boolean;
-  isPlaying: boolean;
   onPlay: () => void;
   onRemove: () => void;
 }) {
@@ -73,13 +71,12 @@ function TrackRow({
           </span>
           <span className="block truncate text-xs text-text-muted">{track.artist}</span>
         </span>
-        {isCurrent && (isPlaying ? <Pause className="h-4 w-4 text-accent" aria-hidden="true" /> : <Play className="h-4 w-4 text-accent" aria-hidden="true" />)}
       </button>
       <span className="hidden text-sm text-text-muted sm:block">{formatDuration(track.duration)}</span>
       <button
         onClick={onRemove}
         aria-label={`Remove ${track.title} from playlist`}
-        className="rounded-full p-2 text-text-muted opacity-0 hover:bg-danger/10 hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
+        className="rounded-full p-2 text-text-muted hover:bg-danger/10 hover:text-danger focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
       >
         <Trash2 className="h-4 w-4" aria-hidden="true" />
       </button>
@@ -131,7 +128,7 @@ function MissingTrackRow({
       <button
         onClick={onRemove}
         aria-label={`Remove ${stub.title} from playlist`}
-        className="rounded-full p-2 text-text-muted opacity-0 hover:bg-danger/10 hover:text-danger focus-visible:opacity-100 group-hover:opacity-100"
+        className="rounded-full p-2 text-text-muted hover:bg-danger/10 hover:text-danger focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
       >
         <Trash2 className="h-4 w-4" aria-hidden="true" />
       </button>
@@ -146,7 +143,7 @@ export default function PlaylistDetailPage() {
   const resolvedPlaylist = playlist === LOADING ? undefined : playlist;
   const entries = usePlaylistEntries(resolvedPlaylist);
   const allTracks = useTracks();
-  const { playNow, currentTrack, isPlaying } = usePlayer();
+  const { playNow, currentTrack } = usePlayer();
   const { showToast } = useToast();
 
   const [query, setQuery] = useState('');
@@ -317,7 +314,6 @@ export default function PlaylistDetailPage() {
                 key={entry.id}
                 track={entry.track}
                 isCurrent={entry.track.id === currentTrack?.id}
-                isPlaying={isPlaying}
                 onPlay={() => playNow([entry.track.id])}
                 onRemove={() => removeTrack(entry.id)}
               />
@@ -339,7 +335,6 @@ export default function PlaylistDetailPage() {
                     key={entry.id}
                     track={entry.track}
                     isCurrent={entry.track.id === currentTrack?.id}
-                    isPlaying={isPlaying}
                     onPlay={() => playNow([entry.track.id])}
                     onRemove={() => removeTrack(entry.id)}
                   />

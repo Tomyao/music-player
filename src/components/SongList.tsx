@@ -26,7 +26,7 @@ interface SongListProps {
 const columns: Array<{ key: SortKey; label: string; className: string }> = [
   { key: 'title', label: 'Title', className: 'flex-1 min-w-0' },
   { key: 'album', label: 'Album', className: 'hidden w-48 md:flex' },
-  { key: 'duration', label: 'Time', className: 'w-16 text-right' },
+  { key: 'duration', label: 'Time', className: 'hidden w-16 text-right sm:flex' },
 ];
 
 export function SongList({
@@ -71,35 +71,47 @@ export function SongList({
   return (
     <div>
       {selectedIds.size > 0 && (
-        <div className="mb-2 flex flex-wrap items-center gap-2 rounded-xl border border-accent/30 bg-accent/5 px-3 py-2 text-sm">
-          <span className="font-medium">{selectedIds.size} selected</span>
-          <div className="ml-auto flex items-center gap-1">
+        <div className="mb-2 flex flex-col gap-2 rounded-xl border border-accent/30 bg-accent/5 px-3 py-2 text-sm sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="hidden items-center gap-2 sm:flex">
+            <span className="font-medium">{selectedIds.size} selected</span>
+            <button
+              onClick={() => onSelectionChange(new Set())}
+              className="rounded-full border border-border px-2 py-1 text-text-muted hover:bg-surface-hover"
+            >
+              Clear
+            </button>
+          </div>
+          <span className="font-medium sm:hidden">{selectedIds.size} selected</span>
+
+          <div className="grid grid-flow-col grid-cols-2 grid-rows-2 gap-2 sm:ml-auto sm:flex sm:grid-cols-none sm:grid-rows-none sm:items-center sm:gap-1">
             <button
               onClick={() => onEnqueue(selectedTracks.map((t) => t.id))}
-              className="flex items-center gap-1 rounded-full px-2 py-1 hover:bg-surface-hover"
+              className="flex w-full items-center justify-center gap-1 rounded-full border border-border px-2 py-1 hover:bg-surface-hover sm:w-auto"
               title="Add to queue"
             >
-              <ListPlus className="h-4 w-4" aria-hidden="true" /> Queue
+              <ListPlus className="h-4 w-4 shrink-0" aria-hidden="true" /> Queue
             </button>
             <button
               onClick={() => onPlayNext(selectedTracks.map((t) => t.id))}
-              className="flex items-center gap-1 rounded-full px-2 py-1 hover:bg-surface-hover"
+              className="flex w-full items-center justify-center gap-1 rounded-full border border-border px-2 py-1 hover:bg-surface-hover sm:w-auto"
               title="Play next"
             >
-              <ListEnd className="h-4 w-4" aria-hidden="true" /> Play next
-            </button>
-            <button
-              onClick={() => onRemoveSelected(selectedTracks)}
-              className="flex items-center gap-1 rounded-full px-2 py-1 text-danger hover:bg-danger/10"
-              title="Remove from library"
-            >
-              <Trash2 className="h-4 w-4" aria-hidden="true" /> Remove from library
+              <ListEnd className="h-4 w-4 shrink-0" aria-hidden="true" /> Play next
             </button>
             <button
               onClick={() => onSelectionChange(new Set())}
-              className="rounded-full px-2 py-1 text-text-muted hover:bg-surface-hover"
+              className="w-full rounded-full border border-border px-2 py-1 text-center text-text-muted hover:bg-surface-hover sm:hidden"
             >
               Clear
+            </button>
+            <button
+              onClick={() => onRemoveSelected(selectedTracks)}
+              className="flex w-full items-center justify-center gap-1 rounded-full border border-border px-2 py-1 text-danger hover:bg-danger/10 sm:w-auto"
+              title="Remove from library"
+            >
+              <Trash2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="sm:hidden">Delete</span>
+              <span className="hidden sm:inline">Remove from library</span>
             </button>
           </div>
         </div>
@@ -201,11 +213,11 @@ export function SongList({
               <span className="hidden w-48 truncate text-sm text-text-muted md:block">
                 {track.album}
               </span>
-              <span className="w-16 text-right text-sm tabular-nums text-text-muted">
+              <span className="hidden w-16 text-right text-sm tabular-nums text-text-muted sm:block">
                 {formatDuration(track.duration)}
               </span>
 
-              <span className="flex w-20 items-center justify-end gap-0.5 opacity-0 focus-within:opacity-100 group-hover:opacity-100">
+              <span className="flex w-20 items-center justify-end gap-0.5 focus-within:opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
                 <button
                   onClick={() => onEnqueue([track.id])}
                   aria-label={`Add ${track.title} to queue`}

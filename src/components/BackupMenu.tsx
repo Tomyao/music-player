@@ -64,15 +64,15 @@ export function BackupMenu() {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label="Backup and restore playlists"
         title="Backup and restore playlists"
-        className="rounded-full p-2 text-text-muted hover:bg-surface-hover hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+        className="flex w-full items-center justify-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-surface-hover sm:w-auto"
       >
         {busy ? (
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
         ) : (
           <HardDriveDownload className="h-4 w-4" aria-hidden="true" />
         )}
+        Backup/Import
       </button>
 
       {open && (

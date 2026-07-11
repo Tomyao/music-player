@@ -49,7 +49,8 @@ export function Artwork({ artworkBlobId, album, artist, className = '', rounded 
       alt=""
       aria-hidden="true"
       loading="lazy"
-      className={`${roundedMap[rounded]} bg-surface object-cover ${className}`}
+      draggable={false}
+      className={`${roundedMap[rounded]} bg-surface object-cover select-none [-webkit-touch-callout:none] ${className}`}
     />
   );
 }

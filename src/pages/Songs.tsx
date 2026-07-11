@@ -162,16 +162,16 @@ export default function SongsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 pb-32">
+    <div className="mx-auto flex h-[calc(100dvh-3.5rem-1px)] max-w-6xl flex-col overflow-hidden px-4 pt-6 sm:block sm:h-auto sm:overflow-visible">
       {selectedAlbum ? (
         <>
           <button
             onClick={() => setSelectedAlbum(null)}
-            className="mb-4 flex items-center gap-1 text-sm text-text-muted hover:text-text"
+            className="mb-4 flex shrink-0 items-center gap-1 text-sm text-text-muted hover:text-text"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Albums
           </button>
-          <div className="mb-6 flex flex-wrap items-center gap-4">
+          <div className="mb-6 flex shrink-0 flex-wrap items-center gap-4">
             <Artwork
               album={selectedAlbum.album}
               artist={selectedAlbum.artist}
@@ -196,28 +196,30 @@ export default function SongsPage() {
             )}
           </div>
 
-          <SongList
-            tracks={albumTracks}
-            selectedIds={selectedIds}
-            onSelectionChange={setSelectedIds}
-            onPlay={(index) => {
-              const track = albumTracks[index];
-              if (track) playNow([track.id]);
-            }}
-            onEnqueue={handleEnqueue}
-            onPlayNext={handlePlayNext}
-            currentTrackId={currentTrack?.id}
-            isPlaying={isPlaying}
-            onRemoveSelected={setPendingDelete}
-            sortKey="album"
-            emptyMessage="No songs match your search."
-          />
+          <div className="flex-1 overflow-y-auto pb-32 sm:overflow-visible">
+            <SongList
+              tracks={albumTracks}
+              selectedIds={selectedIds}
+              onSelectionChange={setSelectedIds}
+              onPlay={(index) => {
+                const track = albumTracks[index];
+                if (track) playNow([track.id]);
+              }}
+              onEnqueue={handleEnqueue}
+              onPlayNext={handlePlayNext}
+              currentTrackId={currentTrack?.id}
+              isPlaying={isPlaying}
+              onRemoveSelected={setPendingDelete}
+              sortKey="album"
+              emptyMessage="No songs match your search."
+            />
+          </div>
         </>
       ) : (
         <>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="mb-4 flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h1 className="text-2xl font-semibold">Library</h1>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <SearchBar
                 value={query}
                 onChange={setQuery}
@@ -228,7 +230,7 @@ export default function SongsPage() {
                 <button
                   onClick={() => changeView('songs')}
                   aria-pressed={viewMode === 'songs'}
-                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-medium transition-colors ${
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 font-medium transition-colors ${
                     viewMode === 'songs'
                       ? 'border-accent text-accent'
                       : 'border-transparent text-text-muted hover:text-text'
@@ -239,7 +241,7 @@ export default function SongsPage() {
                 <button
                   onClick={() => changeView('albums')}
                   aria-pressed={viewMode === 'albums'}
-                  className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-medium transition-colors ${
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 font-medium transition-colors ${
                     viewMode === 'albums'
                       ? 'border-accent text-accent'
                       : 'border-transparent text-text-muted hover:text-text'
@@ -251,7 +253,7 @@ export default function SongsPage() {
               {filtered.length > 0 && (
                 <button
                   onClick={() => playNow(filtered.map((t) => t.id))}
-                  className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-accent px-3 py-2 text-sm font-medium text-bg hover:bg-accent-hover"
+                  className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-accent px-3 py-2 text-sm font-medium text-bg hover:bg-accent-hover sm:shrink-0"
                 >
                   <Play className="h-4 w-4" aria-hidden="true" /> Play all
                 </button>
@@ -259,28 +261,30 @@ export default function SongsPage() {
             </div>
           </div>
 
-          {viewMode === 'albums' ? (
-            <AlbumGrid albums={albums} onSelect={openAlbum} emptyMessage="No albums match your search." />
-          ) : (
-            <SongList
-              tracks={filtered}
-              selectedIds={selectedIds}
-              onSelectionChange={setSelectedIds}
-              onPlay={(index) => {
-                const track = filtered[index];
-                if (track) playNow([track.id]);
-              }}
-              onEnqueue={handleEnqueue}
-              onPlayNext={handlePlayNext}
-              currentTrackId={currentTrack?.id}
-              isPlaying={isPlaying}
-              onRemoveSelected={setPendingDelete}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSort={onSort}
-              emptyMessage="No songs match your search."
-            />
-          )}
+          <div className="flex-1 overflow-y-auto pb-32 sm:overflow-visible">
+            {viewMode === 'albums' ? (
+              <AlbumGrid albums={albums} onSelect={openAlbum} emptyMessage="No albums match your search." />
+            ) : (
+              <SongList
+                tracks={filtered}
+                selectedIds={selectedIds}
+                onSelectionChange={setSelectedIds}
+                onPlay={(index) => {
+                  const track = filtered[index];
+                  if (track) playNow([track.id]);
+                }}
+                onEnqueue={handleEnqueue}
+                onPlayNext={handlePlayNext}
+                currentTrackId={currentTrack?.id}
+                isPlaying={isPlaying}
+                onRemoveSelected={setPendingDelete}
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={onSort}
+                emptyMessage="No songs match your search."
+              />
+            )}
+          </div>
         </>
       )}
 

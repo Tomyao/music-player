@@ -81,6 +81,7 @@ export function QueueDrawer() {
     queue,
     currentIndex,
     queueDrawerOpen,
+    topOverlay,
     reorderQueue,
     removeFromQueue,
     clearQueue,
@@ -121,7 +122,9 @@ export function QueueDrawer() {
     <aside
       id="queue-drawer"
       aria-label="Playback queue"
-      className="fixed bottom-[76px] right-0 top-14 z-30 flex w-full max-w-sm animate-slide-up flex-col border-l border-border bg-surface shadow-2xl sm:bottom-20"
+      className={`fixed bottom-16 right-0 top-14 flex w-full max-w-sm animate-slide-up flex-col border-l border-border bg-surface shadow-2xl sm:bottom-20 ${
+        topOverlay === 'queue' ? 'z-30' : 'z-20'
+      }`}
     >
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <h2 className="font-semibold">Queue</h2>
