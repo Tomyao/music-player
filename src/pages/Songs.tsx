@@ -16,7 +16,7 @@ type ViewMode = 'songs' | 'albums';
 
 export default function SongsPage() {
   const tracks = useTracks();
-  const { playNow, enqueue, playNext, currentTrack, isPlaying, removeTrackFromQueue } = usePlayer();
+  const { playNow, enqueue, playNext, currentTrack, isPlaying, removeTracksFromQueue } = usePlayer();
   const { showToast } = useToast();
 
   const [query, setQuery] = useState('');
@@ -133,8 +133,8 @@ export default function SongsPage() {
     if (!pendingDelete || pendingDelete.length === 0) return;
     for (const track of pendingDelete) {
       await deleteTrackCascade(track.id);
-      removeTrackFromQueue(track.id);
     }
+    removeTracksFromQueue(pendingDelete.map((t) => t.id));
     showToast(
       pendingDelete.length === 1
         ? `Removed "${pendingDelete[0].title}"`
