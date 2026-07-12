@@ -19,8 +19,13 @@ export default defineConfig({
       manifest: false, // we ship our own public/manifest.webmanifest
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
-        navigateFallback: '/offline.html',
-        navigateFallbackDenylist: [/^\/api\//],
+        // vite-plugin-pwa defaults this to 'index.html', which makes workbox
+        // register a NavigationRoute ahead of runtimeCaching and win for every
+        // navigation unconditionally (bypassing the network-first route
+        // below even when online). Explicitly unset it — Object.assign copies
+        // this key's `undefined` over that default — so navigation is only
+        // ever handled by the runtimeCaching NetworkFirst route below.
+        navigateFallback: undefined,
         runtimeCaching: [
           {
             // artwork & audio blobs are served from object URLs (blob:) created
@@ -37,11 +42,26 @@ export default defineConfig({
             },
           },
           {
+            // NetworkFirst (rather than `navigateFallback`, which registers its
+            // NavigationRoute ahead of runtimeCaching routes and would win for
+            // every navigation unconditionally, serving offline.html even when
+            // online) tries the network first so refreshes get the live app;
+            // `handlerDidError` only serves offline.html once both the network
+            // and the pages-cache have failed for this exact URL.
             urlPattern: ({ request }) => request.mode === 'navigate',
             handler: 'NetworkFirst',
             options: {
               cacheName: 'pages-cache',
               networkTimeoutSeconds: 3,
+              plugins: [
+                {
+                  // Precached HTML is stored under a cache-busting
+                  // `?__WB_REVISION__=` query param (it has no content hash in
+                  // its filename), so an exact-URL caches.match would always
+                  // miss — ignoreSearch is required to actually find it.
+                  handlerDidError: async () => caches.match('offline.html', { ignoreSearch: true }),
+                },
+              ],
             },
           },
         ],
