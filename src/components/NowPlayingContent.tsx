@@ -36,13 +36,15 @@ export function NowPlayingContent({ track }: { track: Track }) {
 
   return (
     <div className="mx-auto flex h-full min-h-0 max-w-2xl flex-col items-center justify-start gap-4 overflow-hidden px-4 py-3">
-      <Artwork
-        artworkBlobId={track.artworkBlobId}
-        album={track.album}
-        artist={track.artist}
-        rounded="lg"
-        className="aspect-square h-[min(36vh,14rem)] w-[min(36vh,14rem)] shrink-0 shadow-2xl"
-      />
+      <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+        <Artwork
+          artworkBlobId={track.artworkBlobId}
+          album={track.album}
+          artist={track.artist}
+          rounded="lg"
+          className="aspect-square h-full max-h-[min(36vh,14rem)] w-auto shadow-2xl"
+        />
+      </div>
 
       <div className="shrink-0 text-center">
         <h1 className="text-2xl font-semibold">{track.title}</h1>

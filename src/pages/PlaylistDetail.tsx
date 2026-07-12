@@ -302,7 +302,7 @@ export default function PlaylistDetailPage() {
       )}
 
       {entries.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 px-4 py-24 text-center">
+        <div className="flex flex-col items-center gap-3 px-4 pt-24 text-center">
           <ListMusic className="h-10 w-10 text-text-muted" aria-hidden="true" />
           <p className="text-text-muted">No songs yet. Add some from your library.</p>
         </div>

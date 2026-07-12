@@ -93,7 +93,7 @@ export default function PlaylistsPage() {
       )}
 
       {playlists && playlists.length === 0 && !creating ? (
-        <div className="flex flex-col items-center gap-3 px-4 py-24 text-center">
+        <div className="flex flex-col items-center gap-3 px-4 pt-24 text-center">
           <ListMusic className="h-10 w-10 text-text-muted" aria-hidden="true" />
           <h2 className="text-xl font-semibold">No playlists yet</h2>
           <p className="text-text-muted">Create one to start organizing your songs.</p>
