@@ -122,7 +122,7 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
+    <div className="mx-auto max-w-2xl px-4 py-8 pb-32">
       <h1 className="text-2xl font-semibold">Upload music</h1>
       <p className="mt-1 text-text-muted">
         Drop in MP3 or M4A files to add them to your local library. Everything stays on this device.
