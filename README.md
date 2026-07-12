@@ -17,7 +17,11 @@ There is no backend and no account: your library never leaves the browser.
   multi-select to bulk queue / play-next / remove; toggle between a flat
   Songs list and an Albums grid that drills into one album's tracklist.
 - **Playlists** — create, rename, delete; drag-and-drop reordering inside
-  a playlist; add songs from a searchable picker.
+  a playlist; add songs from a searchable picker. Deleting a track from
+  the library doesn't drop it from playlists that reference it — it
+  keeps showing up (unplayable, using a cached title/artist/album) until
+  a "Rescan" relinks it against a matching track re-added to the
+  library, by name rather than file content.
 - **Persistent player bar** — visible on every page: scrubbable timeline,
   play/pause/prev/next, shuffle (with duplicate prevention) /repeat,
   volume, and a collapsible, drag-reorderable queue drawer. Tapping the
@@ -93,18 +97,28 @@ files needed. It's idempotent; running it twice won't duplicate tracks.
 │ createdAt, updatedAt
 └────────────┘
 
-┌──────────────┐        ┌───────────────────┐
-│  playlists   │        │  app (singleton)  │
-├──────────────┤        ├───────────────────┤
-│ id (PK)      │        │ id: 'settings'    │
-│ name         │        │ theme             │
-│ trackIds[]   │──────▶ tracks.id (ordered) │ repeat, shuffle, volume
-│ createdAt    │        │ lastQueue[]        │ (ordered playback queue)
-│ updatedAt    │        │ lastQueueIndex     │
-└──────────────┘        │ lastPositionSec    │
-                         │ queueDrawerOpen    │
-                         └───────────────────┘
+┌────────────────────────┐  ┌─────────────────────┐
+│ playlists              │  │ app (singleton)     │
+├────────────────────────┤  ├─────────────────────┤
+│ id (PK)                │  │ id: 'settings'      │
+│ name                   │  │ theme               │
+│ trackIds[]  (ordered,  │  │ repeat, shuffle,    │
+│   refs tracks.id)      │  │   volume            │
+│ trackMeta?  (stub for  │  │ lastQueue[]         │
+│   trackIds entries     │  │   (ordered playback │
+│   with no local track  │  │   queue)            │
+│   anymore)             │  │ lastQueueIndex      │
+│ createdAt, updatedAt   │  │ lastPositionSec     │
+└────────────────────────┘  │ queueDrawerOpen     │
+                            └─────────────────────┘
 ```
+
+Deleting a track never rewrites `trackIds` in playlists that reference
+it — it stays referenced, and its title/artist/album is copied into
+`trackMeta` so the playlist can still render a row for it. "Rescan" (in
+[PlaylistDetail](src/pages/PlaylistDetail.tsx)) matches `trackMeta`
+entries against the current library by name and swaps the id back in,
+via [`rescanPlaylist`](src/db/indexedDb.ts).
 
 All four stores live in a single Dexie database (`waveform-music-db`,
 schema version 1, see [src/db/indexedDb.ts](src/db/indexedDb.ts)). Bump
@@ -151,19 +165,22 @@ Use the "Backup/Import" button in the top bar:
 
 - **Export playlists (.json)** — every playlist's name and track order,
   plus a title/artist/album stub for each referenced track, so the file
-  is small and easy to share. It does not include audio; on import, a
-  track re-links automatically if a matching song (by content hash) is
-  already in your library, otherwise it shows up using the cached
-  title/artist/album stub but isn't playable until you upload that file.
+  is small and easy to share. It does not include audio.
 - **Import playlists file…** — pick a previously exported `.json` file.
   Playlists are matched by id; any playlist already present locally is
   skipped (reported as "skipped existing"), so importing the same backup
-  twice is safe.
+  twice is safe. Track references only resolve automatically if a track
+  with that exact id is already in your local library (e.g. re-importing
+  into the same library you exported from); on a different device or a
+  library that never had those tracks, they land as unplayable stubs
+  showing the cached title/artist/album — use "Rescan" in the playlist
+  (see [Data model](#data-model)) after uploading matching audio files to
+  relink them by name.
 
 This is playlist/metadata sharing, not a full-library backup — there's no
 audio export, so re-uploading your MP3s (or having the recipient upload
-their own copies) is still required to make an imported playlist
-playable.
+their own copies) plus a Rescan is still required to make an imported
+playlist playable elsewhere.
 
 ## Accessibility
 
@@ -209,12 +226,12 @@ playable.
 
 1. Push this repo to GitHub/GitLab/Bitbucket.
 2. In Vercel: **Add New → Project → Import** your repo.
-3. Framework preset: **Vite** (auto-detected). Build command
-   `npm run build`, output directory `dist` (both auto-detected from
-   `package.json`/`vercel.json`).
-4. Deploy. `vercel.json` in this repo already rewrites all non-asset
-   routes to `/index.html` so client-side routing (`/library`,
-   `/playlists/:id`, etc.) works on refresh/deep-link.
+3. Framework preset: **Vite** (auto-detected), which infers the build
+   command (`npm run build`) and output directory (`dist`).
+4. Deploy. `vercel.json` in this repo rewrites all non-asset routes to
+   `/index.html` so client-side routing (`/library`, `/playlists/:id`,
+   etc.) works on refresh/deep-link, and sets cache/content-type headers
+   for the service worker and manifest.
 5. No environment variables or backend services are required — the app
    is fully static and client-side.
 
@@ -275,7 +292,7 @@ music-player/
     ├── types.ts                 # Track, Playlist, BlobDoc, AppSettings, etc.
     ├── vite-env.d.ts
     ├── db/
-    │   └── indexedDb.ts          # Dexie schema, settings helpers, cascade delete
+    │   └── indexedDb.ts          # Dexie schema, settings helpers, cascade delete, playlist rescan
     ├── lib/
     │   ├── id3.ts                 # ID3 parsing (lazy-loaded) + filename fallback
     │   ├── audio.ts                # duration formatting, object-URL cache, placeholder art
@@ -288,10 +305,11 @@ music-player/
     │   ├── useToast.tsx                  # toast context
     │   └── useTheme.ts                    # light/dark/system theme
     ├── components/
-    │   ├── PlayerBar.tsx, QueueDrawer.tsx, SongList.tsx, Artwork.tsx,
-    │   │   UploadDropzone.tsx, TopBar.tsx, SearchBar.tsx, PlaylistCard.tsx,
-    │   │   BackupMenu.tsx, ConfirmDialog.tsx, ThemeToggle.tsx, Toasts.tsx,
-    │   │   NowPlayingOverlay.tsx, NowPlayingContent.tsx, Marquee.tsx
+    │   ├── PlayerBar.tsx, QueueDrawer.tsx, SongList.tsx, AlbumGrid.tsx,
+    │   │   Artwork.tsx, UploadDropzone.tsx, TopBar.tsx, SearchBar.tsx,
+    │   │   PlaylistCard.tsx, BackupMenu.tsx, ConfirmDialog.tsx,
+    │   │   ThemeToggle.tsx, Toasts.tsx, NowPlayingOverlay.tsx,
+    │   │   NowPlayingContent.tsx, Marquee.tsx
     └── pages/
         ├── Upload.tsx, Songs.tsx, Playlists.tsx, PlaylistDetail.tsx
 ```
