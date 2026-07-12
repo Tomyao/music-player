@@ -15,7 +15,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false, // registered manually in src/main.tsx via virtual:pwa-register
-      includeAssets: ['icons/*.svg', 'offline.html'],
+      includeAssets: ['icons/*.svg', 'icons/*.png', 'offline.html'],
       manifest: false, // we ship our own public/manifest.webmanifest
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],

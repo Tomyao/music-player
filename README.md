@@ -210,11 +210,14 @@ playlist playable elsewhere.
   install path. Background/lock-screen media controls via Media Session
   work in Safari but action coverage (e.g. seek) is more limited than
   Chromium.
-- **Placeholder icons.** `public/icons/*.svg` are vector placeholders
-  (a gradient app icon + a maskable variant). They work fine as manifest
-  icons in Chromium browsers; for broadest compatibility (older Android
-  WebViews, `apple-touch-icon` on iOS wants a raster image) swap in real
-  PNG exports at 192×192 and 512×512 before shipping to end users.
+- **Icons are still a placeholder design.** `public/icons/` has a
+  gradient app icon and a maskable variant, each shipped as both SVG and
+  rasterized PNG (192×192/512×512). The manifest lists the PNGs first —
+  an SVG-only icon list was found to silently suppress Chrome's install
+  prompt in production (even though the DevTools installability check
+  reports no errors for it), so keep at least one PNG `any`-purpose and
+  one PNG `maskable`-purpose icon in the manifest. Swap in a real logo
+  before shipping to end users.
 - **No server-side transcoding.** Only browser-decodable formats play via
   the native `<audio>` element; the uploader filters to `.mp3` and `.m4a`
   (MP3 and AAC/M4A are natively supported by every major browser).
