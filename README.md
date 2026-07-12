@@ -19,20 +19,22 @@ There is no backend and no account: your library never leaves the browser.
 - **Playlists** — create, rename, delete; drag-and-drop reordering inside
   a playlist; add songs from a searchable picker.
 - **Persistent player bar** — visible on every page: scrubbable timeline,
-  play/pause/prev/next, shuffle/repeat, volume, and a collapsible,
-  drag-reorderable queue drawer. The dedicated Now Playing page is a
-  simple, uncluttered "poster" view (artwork, title, artist, album) since
-  the bar already covers every control.
+  play/pause/prev/next, shuffle (with duplicate prevention) /repeat,
+  volume, and a collapsible, drag-reorderable queue drawer. Tapping the
+  track info opens a "Now Playing" overlay — a poster view (artwork,
+  title, artist, album) plus an "up next" list of the queue — since the
+  bar already covers every transport control.
 - **Offline-first** — audio and artwork are read from IndexedDB, so
   playback and browsing work with no network connection after first load.
 - **Installable PWA** — manifest + service worker (Workbox via
   `vite-plugin-pwa`), works as a standalone app on desktop and mobile.
 - **Media Session integration** — lock-screen / hardware media key
   controls (play, pause, next, previous, seek) on supported platforms.
-- **Backup & restore** — export your library as JSON (metadata-only, or
-  with embedded audio) and re-import it, deduped by content hash.
+- **Playlist sharing/backup** — export one or all playlists (track
+  references + title/artist/album metadata) as JSON and re-import them
+  elsewhere, deduped by playlist id.
 - **Light/dark theme**, keyboard-accessible controls, reduced-motion
-  support.
+  support, mobile-optimized layout.
 
 ## Tech stack
 
@@ -145,24 +147,23 @@ reload.
 
 ## Backup & restore
 
-Use the download icon in the top bar ("Backup and restore"):
+Use the "Backup/Import" button in the top bar:
 
-- **Export metadata (.json)** — tracks + playlists only. Small file,
-  good for syncing your playlist structure across devices, but audio
-  won't be attached on import (tracks are re-linked automatically if you
-  re-upload the same MP3s, since dedupe matches on content hash).
-- **Export with audio (.json)** — same, plus every audio/artwork blob
-  embedded as base64. This can be a large file (roughly 1.3× your total
-  library size, since base64 inflates binary data) but is fully
-  self-contained and playable after import with no re-uploading.
-- **Import backup file…** — pick a previously exported `.json` file.
-  Tracks are matched by content hash; anything already in your library is
-  skipped (reported as "skipped duplicates"), so importing the same
-  backup twice is safe.
+- **Export playlists (.json)** — every playlist's name and track order,
+  plus a title/artist/album stub for each referenced track, so the file
+  is small and easy to share. It does not include audio; on import, a
+  track re-links automatically if a matching song (by content hash) is
+  already in your library, otherwise it shows up using the cached
+  title/artist/album stub but isn't playable until you upload that file.
+- **Import playlists file…** — pick a previously exported `.json` file.
+  Playlists are matched by id; any playlist already present locally is
+  skipped (reported as "skipped existing"), so importing the same backup
+  twice is safe.
 
-There's no ZIP packaging — a single JSON file (optionally with embedded
-base64 audio) was chosen to avoid pulling in a zip library for what's
-fundamentally a small, occasional export.
+This is playlist/metadata sharing, not a full-library backup — there's no
+audio export, so re-uploading your MP3s (or having the recipient upload
+their own copies) is still required to make an imported playlist
+playable.
 
 ## Accessibility
 
@@ -289,10 +290,10 @@ music-player/
     ├── components/
     │   ├── PlayerBar.tsx, QueueDrawer.tsx, SongList.tsx, Artwork.tsx,
     │   │   UploadDropzone.tsx, TopBar.tsx, SearchBar.tsx, PlaylistCard.tsx,
-    │   │   AddToPlaylistMenu.tsx, BackupMenu.tsx, ConfirmDialog.tsx,
-    │   │   ThemeToggle.tsx, Toasts.tsx
+    │   │   BackupMenu.tsx, ConfirmDialog.tsx, ThemeToggle.tsx, Toasts.tsx,
+    │   │   NowPlayingOverlay.tsx, NowPlayingContent.tsx, Marquee.tsx
     └── pages/
-        ├── Upload.tsx, Songs.tsx, Playlists.tsx, PlaylistDetail.tsx, NowPlaying.tsx
+        ├── Upload.tsx, Songs.tsx, Playlists.tsx, PlaylistDetail.tsx
 ```
 
 ## Troubleshooting
