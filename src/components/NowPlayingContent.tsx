@@ -2,10 +2,22 @@ import { ChevronRight, Pause, Play, SkipBack, SkipForward } from 'lucide-react';
 import { usePlayer } from '@/hooks/usePlayer';
 import { useTracksByIds } from '@/hooks/useIndexedDb';
 import { Artwork } from '@/components/Artwork';
+import { Marquee } from '@/components/Marquee';
 import { formatDuration, seekFillPosition } from '@/lib/audio';
 import type { Track } from '@/types';
 
 const UP_NEXT_PREVIEW_COUNT = 1;
+
+type UpNextEntry = Pick<Track, 'id' | 'title' | 'artist' | 'album' | 'artworkBlobId'>;
+
+/**
+ * Rendered (invisibly) in place of a real entry so the "Up next" block keeps
+ * its height with nothing queued. Title/artist use a non-breaking space
+ * rather than '' — an empty inline span collapses its line box a few px
+ * shorter than one with content, which would make the block (and the
+ * artwork above it, sized off the remaining space) shrink slightly anyway.
+ */
+const PLACEHOLDER_TRACK: UpNextEntry = { id: '__placeholder__', title: ' ', artist: ' ', album: '' };
 
 /**
  * The "poster" view of the current track: artwork, title/artist/album, and
@@ -33,6 +45,8 @@ export function NowPlayingContent({ track }: { track: Track }) {
 
   const upNextIds = queue.slice(currentIndex + 1, currentIndex + 1 + UP_NEXT_PREVIEW_COUNT);
   const upNextTracks = useTracksByIds(upNextIds);
+  const hasUpNext = Boolean(upNextTracks && upNextTracks.length > 0);
+  const upNextEntries: UpNextEntry[] = hasUpNext ? upNextTracks! : [PLACEHOLDER_TRACK];
 
   return (
     <div className="mx-auto flex h-full min-h-0 max-w-2xl flex-col items-center justify-start gap-4 overflow-hidden px-4 py-3">
@@ -46,10 +60,23 @@ export function NowPlayingContent({ track }: { track: Track }) {
         />
       </div>
 
-      <div className="shrink-0 text-center">
-        <h1 className="text-2xl font-semibold">{track.title}</h1>
-        <p className="mt-1 text-text-muted">{track.artist}</p>
-        <p className="text-sm text-text-muted">{track.album}</p>
+      {/*
+        Marquee (same one the player bar uses) truncates on one line and only
+        scrolls if the text actually overflows, instead of wrapping onto a
+        second/third line — long titles were changing the height of this
+        block (and pushing the artwork above it around) depending on the song.
+      */}
+      <div className="w-full max-w-sm shrink-0 text-center">
+        <h1 className="text-2xl font-semibold">
+          <Marquee text={track.title} />
+        </h1>
+        {/* div, not p — Marquee's root is a div, which <p> can't validly contain */}
+        <div className="mt-1 text-text-muted">
+          <Marquee text={track.artist} />
+        </div>
+        <div className="text-sm text-text-muted">
+          <Marquee text={track.album} />
+        </div>
       </div>
 
       <div className="w-full max-w-sm shrink-0 sm:hidden">
@@ -103,34 +130,40 @@ export function NowPlayingContent({ track }: { track: Track }) {
         </div>
       </div>
 
-      {upNextTracks && upNextTracks.length > 0 && (
-        <div className="w-full max-w-sm shrink-0">
-          <button
-            onClick={toggleQueueDrawer}
-            className="mb-1.5 flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-text-muted hover:text-text"
-          >
-            Up next
-            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-          <ul>
-            {upNextTracks.map((t) => (
-              <li key={t.id} className="flex items-center gap-2 py-1">
-                <Artwork
-                  artworkBlobId={t.artworkBlobId}
-                  album={t.album}
-                  artist={t.artist}
-                  className="h-8 w-8 shrink-0"
-                  rounded="sm"
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm">{t.title}</span>
-                  <span className="block truncate text-xs text-text-muted">{t.artist}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/*
+        Always reserve this block's height, even with nothing queued up next —
+        toggling it in and out of the layout entirely made the artwork above
+        (which grows to fill freed space) jump size on every track change.
+        `invisible` keeps the box (and the artwork's available space) fixed
+        while hiding the placeholder content it renders instead.
+      */}
+      <div className={`w-full max-w-sm shrink-0 ${hasUpNext ? '' : 'invisible'}`}>
+        <button
+          onClick={toggleQueueDrawer}
+          className="mb-1.5 flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-text-muted hover:text-text"
+          tabIndex={hasUpNext ? 0 : -1}
+        >
+          Up next
+          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+        <ul>
+          {upNextEntries.map((t) => (
+            <li key={t.id} className="flex items-center gap-2 py-1">
+              <Artwork
+                artworkBlobId={t.artworkBlobId}
+                album={t.album}
+                artist={t.artist}
+                className="h-8 w-8 shrink-0"
+                rounded="sm"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm">{t.title}</span>
+                <span className="block truncate text-xs text-text-muted">{t.artist}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
